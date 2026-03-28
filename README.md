@@ -1,2 +1,3 @@
-# Marketing_IA
-App para ajudar empresas com IAs
+# Welcome to your Lovable project
+
+TODO: Document your project here

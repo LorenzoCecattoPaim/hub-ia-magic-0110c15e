@@ -1,0 +1,109 @@
+import { Megaphone, Ticket, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut } from "lucide-react";
+import { CreditsDisplay } from "@/components/CreditsDisplay";
+import { NavLink } from "@/components/NavLink";
+import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+  useSidebar,
+} from "@/components/ui/sidebar";
+
+const mainItems = [
+  { title: "Marketing", url: "/", icon: Megaphone },
+  { title: "Chat IA", url: "/chat", icon: Bot },
+  { title: "Cupons", url: "/cupons", icon: Ticket },
+  { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
+  { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
+];
+
+const bottomItems = [
+  { title: "Configurações", url: "/configuracoes", icon: Settings },
+];
+
+export function AppSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const location = useLocation();
+  const { signOut, user } = useAuth();
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-border">
+      <SidebarHeader className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="gradient-primary rounded-lg p-2 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <div>
+              <h1 className="font-display text-sm font-bold text-foreground tracking-tight">
+                AI Marketing Hub
+              </h1>
+              <p className="text-xs text-muted-foreground">Seu hub de marketing</p>
+            </div>
+          )}
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent className="px-2">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      end={item.url === "/"}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200"
+                      activeClassName="bg-accent text-accent-foreground font-medium shadow-glow"
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      {!collapsed && <span className="text-sm">{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter className="px-2 pb-4 space-y-2">
+        <CreditsDisplay collapsed={collapsed} />
+        <SidebarMenu>
+          {bottomItems.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild>
+                <NavLink
+                  to={item.url}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200"
+                  activeClassName="bg-accent text-accent-foreground font-medium"
+                >
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  {!collapsed && <span className="text-sm">{item.title}</span>}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={signOut}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200 cursor-pointer"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="text-sm">Sair</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
