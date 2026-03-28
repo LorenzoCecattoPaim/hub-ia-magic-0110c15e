@@ -7,6 +7,27 @@ export type AiResponse = {
   model_used?: string;
 };
 
+export type AiContext = {
+  ragContext?: string;
+  ctaFallback?: string;
+};
+
+const CTA_REGEX =
+  /(clique|acesse|compre|fale|chame|cadastre|assine|garanta|aproveite|inscreva|peça|baixe|entre em contato|whatsapp)/i;
+
+export function ensureCta(text: string, fallback?: string) {
+  if (!text) return text;
+  if (CTA_REGEX.test(text)) return text;
+  const cta = fallback || "Fale com a gente no WhatsApp e garanta sua oferta hoje.";
+  return `${text}\n\nCTA: ${cta}`;
+}
+
+export function buildPromptWithContext(prompt: string, context?: AiContext) {
+  const ragContext = context?.ragContext?.trim();
+  if (!ragContext) return prompt;
+  return `${prompt}\n\nContexto adicional (arquivos enviados):\n${ragContext}`;
+}
+
 export async function sendMessage(message: string): Promise<AiResponse> {
   const { data, error } = await supabase.functions.invoke("ai-chat", {
     body: { message },
@@ -25,4 +46,16 @@ export async function sendMessage(message: string): Promise<AiResponse> {
   }
 
   return data;
+}
+
+export async function aiOrchestrator(
+  prompt: string,
+  context?: AiContext
+): Promise<AiResponse> {
+  const message = buildPromptWithContext(prompt, context);
+  const data = await sendMessage(message);
+  return {
+    ...data,
+    response: ensureCta(data.response, context?.ctaFallback),
+  };
 }

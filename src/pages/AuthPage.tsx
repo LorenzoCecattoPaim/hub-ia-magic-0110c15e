@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
 
 export default function AuthPage() {
   const { user, loading } = useAuth();
@@ -69,9 +68,7 @@ export default function AuthPage() {
           <div className="gradient-primary rounded-2xl p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <Sparkles className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-foreground">
-            AI Marketing Hub
-          </h1>
+          <h1 className="font-display text-2xl font-bold text-foreground">AI Marketing Hub</h1>
           <p className="text-muted-foreground mt-1">
             {isLogin ? "Acesse sua conta" : "Crie sua conta grátis"}
           </p>

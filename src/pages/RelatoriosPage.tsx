@@ -1,8 +1,15 @@
-import { BarChart3, TrendingUp, Lightbulb, Download, Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Download, Sparkles } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const insights = [
+type Insight = {
+  title: string;
+  description: string;
+  category: "Tendência" | "Oportunidade" | "Insight" | "Case";
+};
+
+const initialInsights: Insight[] = [
   {
     title: "Tendência: Vídeos curtos dominam",
     description: "Reels e TikToks geram 3x mais engajamento que posts estáticos. Considere adaptar seu conteúdo.",
@@ -25,20 +32,50 @@ const insights = [
   },
 ];
 
-const categoryColors: Record<string, string> = {
-  "Tendência": "gradient-primary",
-  "Oportunidade": "gradient-warm",
-  "Insight": "gradient-accent",
-  "Case": "bg-secondary",
+const categoryColors: Record<Insight["category"], string> = {
+  Tendência: "gradient-primary",
+  Oportunidade: "gradient-warm",
+  Insight: "gradient-accent",
+  Case: "bg-secondary",
 };
 
+const insightTemplates: Insight[] = [
+  {
+    title: "Campanhas sazonais em alta",
+    description: "Campanhas temáticas geram até 25% mais cliques. Planeje conteúdos especiais para datas-chave.",
+    category: "Oportunidade",
+  },
+  {
+    title: "Formato carrossel performa melhor",
+    description: "Posts em carrossel aumentam a retenção e impulsionam salvamentos. Teste dicas em sequência.",
+    category: "Insight",
+  },
+  {
+    title: "Clientes respondem a prova social",
+    description: "Depoimentos reais elevam conversões. Inclua avaliações e números de clientes satisfeitos.",
+    category: "Tendência",
+  },
+];
+
 export default function RelatoriosPage() {
+  const [insights, setInsights] = useState<Insight[]>(initialInsights);
+  const [loading, setLoading] = useState(false);
+
+  const handleGenerate = () => {
+    setLoading(true);
+    setTimeout(() => {
+      const next = insightTemplates.sort(() => 0.5 - Math.random()).slice(0, 2);
+      setInsights((prev) => [...next, ...prev]);
+      setLoading(false);
+    }, 700);
+  };
+
   return (
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">Relatórios & Insights</h1>
-          <p className="text-muted-foreground mt-1">Tendências, ideias e insights gerados pela IA para seu negócio</p>
+          <p className="text-muted-foreground mt-1">Tendências, ideias e insights gerados para seu negócio</p>
         </div>
         <Button variant="outline" className="border-border text-foreground hover:bg-accent">
           <Download className="h-4 w-4 mr-2" />
@@ -55,12 +92,17 @@ export default function RelatoriosPage() {
               <p className="text-xs text-primary font-semibold uppercase tracking-wider">Relatório Mensal</p>
               <h2 className="font-display text-xl font-bold text-foreground mt-2">Junho 2026</h2>
               <p className="text-muted-foreground text-sm mt-2 max-w-lg">
-                Resumo completo das tendências de marketing digital, oportunidades identificadas e sugestões práticas para o seu negócio.
+                Resumo completo das tendências de marketing digital, oportunidades identificadas e sugestões práticas
+                para o seu negócio.
               </p>
             </div>
-            <Button className="gradient-primary text-primary-foreground hover:opacity-90">
+            <Button
+              className="gradient-primary text-primary-foreground hover:opacity-90"
+              onClick={handleGenerate}
+              disabled={loading}
+            >
               <Sparkles className="h-4 w-4 mr-2" />
-              Gerar com IA
+              {loading ? "Gerando..." : "Gerar com IA"}
             </Button>
           </div>
           <div className="grid grid-cols-3 gap-6 mt-8">
@@ -85,10 +127,15 @@ export default function RelatoriosPage() {
         <h2 className="font-display text-lg font-semibold text-foreground mb-4">Últimos Insights</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {insights.map((insight) => (
-            <Card key={insight.title} className="bg-card border-border shadow-card hover:shadow-glow transition-shadow duration-300">
+            <Card
+              key={`${insight.title}-${insight.category}`}
+              className="bg-card border-border shadow-card hover:shadow-glow transition-shadow duration-300"
+            >
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
-                  <div className={`${categoryColors[insight.category]} rounded-lg px-2.5 py-1 text-xs font-bold text-primary-foreground shrink-0`}>
+                  <div
+                    className={`${categoryColors[insight.category]} rounded-lg px-2.5 py-1 text-xs font-bold text-primary-foreground shrink-0`}
+                  >
                     {insight.category}
                   </div>
                 </div>

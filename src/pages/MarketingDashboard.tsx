@@ -1,5 +1,5 @@
 import { Megaphone, TrendingUp, Image, FileText, Sparkles, ArrowRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -30,9 +30,7 @@ export default function MarketingDashboard() {
     <div className="p-6 space-y-8 max-w-7xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">
-          Bom dia! 👋
-        </h1>
+        <h1 className="font-display text-2xl font-bold text-foreground">Bom dia! 👋</h1>
         <p className="text-muted-foreground mt-1">
           Seu hub de marketing está pronto para impulsionar suas vendas.
         </p>
@@ -41,7 +39,10 @@ export default function MarketingDashboard() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.label} className="bg-card border-border shadow-card hover:shadow-glow transition-shadow duration-300">
+          <Card
+            key={stat.label}
+            className="bg-card border-border shadow-card hover:shadow-glow transition-shadow duration-300"
+          >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -67,7 +68,7 @@ export default function MarketingDashboard() {
               <Card
                 key={action.title}
                 className="bg-card border-border shadow-card hover:shadow-glow hover:border-primary/30 transition-all duration-300 cursor-pointer group"
-                onClick={() => action.title === "Chat com IA" ? navigate("/chat") : null}
+                onClick={() => (action.title === "Chat com IA" ? navigate("/chat") : null)}
               >
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="gradient-primary rounded-lg p-2.5 shrink-0 group-hover:scale-110 transition-transform duration-200">

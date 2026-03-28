@@ -13,3 +13,14 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+Object.defineProperty(globalThis, "crypto", {
+  value: {
+    randomUUID: () => "test-uuid",
+  },
+});
+
+Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+  value: () => {},
+  writable: true,
+});

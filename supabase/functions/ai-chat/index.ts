@@ -28,6 +28,45 @@ function calculateCostFromTokens(tokens: number): number {
   return Math.max(1, Math.ceil(tokens / 500));
 }
 
+async function requestCompletion(
+  model: string,
+  systemPrompt: string,
+  message: string
+) {
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) {
+    return { ok: false, error: "missing_api_key" } as const;
+  }
+
+  const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "HTTP-Referer": Deno.env.get("SUPABASE_URL") || "",
+      "X-Title": "AI Marketing Hub",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
+      max_tokens: 2000,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    const errorText = await aiResponse.text();
+    console.error(`OpenRouter error (${model}):`, errorText);
+    return { ok: false, error: "request_failed" } as const;
+  }
+
+  const aiData = await aiResponse.json();
+  return { ok: true, data: aiData } as const;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -154,43 +193,23 @@ Regras:
 - Usar emojis quando apropriado para o tom
 - Formatar respostas em markdown para melhor legibilidade`;
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-    if (!OPENROUTER_API_KEY) {
-      return new Response(JSON.stringify({ error: "internal_error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const fallbackModel = "openai/gpt-4o-mini";
+    let aiResult = await requestCompletion(model, systemPrompt, message);
+    let modelUsed = model;
+
+    if (!aiResult.ok) {
+      aiResult = await requestCompletion(fallbackModel, systemPrompt, message);
+      modelUsed = fallbackModel;
     }
 
-    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": Deno.env.get("SUPABASE_URL") || "",
-        "X-Title": "AI Marketing Hub",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-        max_tokens: 2000,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("OpenRouter error:", errorText);
+    if (!aiResult.ok) {
       return new Response(JSON.stringify({ error: "internal_error" }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const aiData = await aiResponse.json();
+    const aiData = aiResult.data;
     const responseText =
       aiData.choices?.[0]?.message?.content ||
       "Não consegui gerar uma resposta. Tente reformular seu pedido.";
@@ -203,7 +222,7 @@ Regras:
     const { error: deductError } = await supabaseAdmin.rpc("deduct_credits", {
       p_user_id: userId,
       p_amount: cost,
-      p_description: `Chat IA: ${message.substring(0, 80)}... (modelo: ${model})`,
+      p_description: `Chat IA: ${message.substring(0, 80)}... (modelo: ${modelUsed})`,
     });
 
     if (deductError) {
@@ -231,7 +250,7 @@ Regras:
 
     const { error: logError } = await supabaseAdmin.from("ai_usage_logs").insert({
       user_id: userId,
-      model,
+      model: modelUsed,
       tokens,
       cost,
       cost_usd: costUsd,
@@ -244,7 +263,7 @@ Regras:
     return new Response(
       JSON.stringify({
         response: responseText,
-        model_used: model,
+        model_used: modelUsed,
         credits_used: cost,
         credits_remaining: newBalance,
       }),

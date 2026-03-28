@@ -1,12 +1,13 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, Bot, User, Megaphone, Image, Lightbulb, Tag, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { Send, Sparkles, Bot, User, Megaphone, Image, Lightbulb, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { useNavigate } from "react-router-dom";
-import { sendMessage } from "@/services/ai";
+import { aiOrchestrator } from "@/services/ai";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import { buildRagContextSummary, loadRagFiles, RAG_UPDATE_EVENT, type RagFileEntry } from "@/lib/rag";
 
 type Message = {
   id: string;
@@ -15,30 +16,35 @@ type Message = {
   timestamp: Date;
 };
 
-const suggestions = [
-  { text: "Crie um post para Black Friday", icon: Megaphone },
-  { text: "Gere legenda para Instagram com CTA", icon: Tag },
-  { text: "Sugira promoções para este mês", icon: Lightbulb },
-  { text: "Crie imagem promocional de produto", icon: Image },
-];
-
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [ragFiles, setRagFiles] = useState<RagFileEntry[]>(() => loadRagFiles());
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: businessProfile, isLoading: profileLoading } = useBusinessProfile();
 
-  const scrollToBottom = () => {
+  const suggestions = useMemo(
+    () => [
+      { text: "Crie um post para Black Friday", icon: Megaphone },
+      { text: "Gere legenda para Instagram com CTA", icon: Tag },
+      { text: "Sugira promoções para este mês", icon: Lightbulb },
+      { text: "Crie imagem promocional de produto", icon: Image },
+    ],
+    []
+  );
+
+  const ragContext = useMemo(() => buildRagContextSummary(ragFiles), [ragFiles]);
+
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   // Redirect to onboarding if no business profile
   useEffect(() => {
@@ -47,43 +53,59 @@ export default function ChatPage() {
     }
   }, [profileLoading, businessProfile, navigate]);
 
-  const handleSend = async (text?: string) => {
-    const messageText = text || input.trim();
-    if (!messageText || isLoading) return;
+  useEffect(() => {
+    const handleUpdate = () => setRagFiles(loadRagFiles());
+    window.addEventListener(RAG_UPDATE_EVENT, handleUpdate);
+    return () => window.removeEventListener(RAG_UPDATE_EVENT, handleUpdate);
+  }, []);
 
-    const userMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: messageText,
-      timestamp: new Date(),
-    };
+  const handleSend = useCallback(
+    async (text?: string) => {
+      const messageText = text || input.trim();
+      if (!messageText || isLoading) return;
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const response = await sendMessage(messageText);
-      const aiMsg: Message = {
+      const userMsg: Message = {
         id: crypto.randomUUID(),
-        role: "assistant",
-        content: response.response,
+        role: "user",
+        content: messageText,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, aiMsg]);
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
-    } catch (error: any) {
-      const errorMsg: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: `⚠️ ${error.message || "Não consegui gerar agora, tente novamente em alguns segundos."}`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
+      setIsLoading(true);
+
+      try {
+        const response = await aiOrchestrator(messageText, { ragContext });
+        const aiMsg: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.response,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+        queryClient.invalidateQueries({ queryKey: ["credits"] });
+      } catch (error: any) {
+        const code = String(error?.code || error?.message || "").toLowerCase();
+        const friendly =
+          code.includes("insufficient_credits") || code.includes("credits")
+            ? "Você ficou sem créditos. Faça uma recarga para continuar."
+            : code.includes("rate_limited")
+            ? "Limite de requisições atingido. Aguarde um minuto e tente novamente."
+            : "Não consegui gerar agora, tente novamente em alguns segundos.";
+        const errorMsg: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `⚠️ ${friendly}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [input, isLoading, queryClient, ragContext]
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -119,6 +141,7 @@ export default function ChatPage() {
               <p className="text-xs text-primary mb-8">
                 🏢 Contexto ativo: {businessProfile.nome_empresa}
                 {businessProfile.nicho ? ` • ${businessProfile.nicho}` : ""}
+                {ragFiles.length ? ` • ${ragFiles.length} arquivo(s)` : ""}
               </p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
@@ -161,7 +184,11 @@ export default function ChatPage() {
                   ) : (
                     <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                   )}
-                  <p className={`text-xs mt-2 ${msg.role === "user" ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                  <p
+                    className={`text-xs mt-2 ${
+                      msg.role === "user" ? "text-primary-foreground/60" : "text-muted-foreground"
+                    }`}
+                  >
                     {msg.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
@@ -196,7 +223,6 @@ export default function ChatPage() {
         <div className="max-w-3xl mx-auto">
           <div className="bg-card border border-border rounded-2xl flex items-end gap-2 p-3 shadow-card focus-within:border-primary/50 focus-within:shadow-glow transition-all duration-200">
             <textarea
-              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}

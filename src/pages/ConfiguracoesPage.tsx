@@ -1,4 +1,4 @@
-import { Settings, Key, Building2, Palette, Bell, Plug } from "lucide-react";
+import { Key, Building2, Bell, Plug } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
