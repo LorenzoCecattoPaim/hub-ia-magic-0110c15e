@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_logs: {
+        Row: {
+          cost: number
+          cost_usd: number
+          created_at: string
+          id: string
+          model: string
+          tokens: number
+          user_id: string
+        }
+        Insert: {
+          cost: number
+          cost_usd: number
+          created_at?: string
+          id?: string
+          model: string
+          tokens: number
+          user_id: string
+        }
+        Update: {
+          cost?: number
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          model?: string
+          tokens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       business_profiles: {
         Row: {
           created_at: string
@@ -110,6 +140,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -157,6 +205,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      cleanup_rate_limits: { Args: never; Returns: undefined }
       deduct_credits: {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
         Returns: undefined
