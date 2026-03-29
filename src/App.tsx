@@ -11,7 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import ChatPage from "./pages/ChatPage";
-import CuponsPage from "./pages/CuponsPage";
+import ImageGeneratorPage from "./pages/ImageGeneratorPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import BibliotecaPage from "./pages/BibliotecaPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
