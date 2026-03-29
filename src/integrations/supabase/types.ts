@@ -122,6 +122,42 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_images: {
+        Row: {
+          created_at: string
+          credits_used: number
+          id: string
+          image_url: string
+          model: string
+          optimized_prompt: string | null
+          prompt: string
+          quality: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          image_url: string
+          model: string
+          optimized_prompt?: string | null
+          prompt: string
+          quality?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          image_url?: string
+          model?: string
+          optimized_prompt?: string | null
+          prompt?: string
+          quality?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -208,6 +244,10 @@ export type Database = {
       cleanup_rate_limits: { Args: never; Returns: undefined }
       deduct_credits: {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
+        Returns: undefined
+      }
+      deduct_credits_secure: {
+        Args: { p_amount: number; p_description?: string }
         Returns: undefined
       }
     }

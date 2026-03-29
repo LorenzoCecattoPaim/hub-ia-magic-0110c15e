@@ -1,4 +1,4 @@
-import { Megaphone, Ticket, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut } from "lucide-react";
+import { Megaphone, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut, Image as ImageIcon } from "lucide-react";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -18,8 +18,8 @@ import {
 
 const mainItems = [
   { title: "Marketing", url: "/", icon: Megaphone },
+  { title: "Gerador IA", url: "/gerador", icon: ImageIcon },
   { title: "Chat IA", url: "/chat", icon: Bot },
-  { title: "Cupons", url: "/cupons", icon: Ticket },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
   { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
 ];
