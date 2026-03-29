@@ -210,6 +210,10 @@ export type Database = {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
         Returns: undefined
       }
+      deduct_credits_secure: {
+        Args: { p_amount: number; p_description?: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
