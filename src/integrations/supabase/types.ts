@@ -122,6 +122,42 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_images: {
+        Row: {
+          created_at: string
+          credits_used: number
+          id: string
+          image_url: string
+          model: string
+          optimized_prompt: string | null
+          prompt: string
+          quality: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          image_url: string
+          model: string
+          optimized_prompt?: string | null
+          prompt: string
+          quality?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          image_url?: string
+          model?: string
+          optimized_prompt?: string | null
+          prompt?: string
+          quality?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
