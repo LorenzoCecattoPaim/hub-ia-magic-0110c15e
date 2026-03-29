@@ -1,4 +1,4 @@
-import { Megaphone, Ticket, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut } from "lucide-react";
+import { Megaphone, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut, Image as ImageIcon } from "lucide-react";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
