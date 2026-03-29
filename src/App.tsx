@@ -38,7 +38,7 @@ const App = () => (
             <Route path="/onboarding" element={<Protected><OnboardingPage /></Protected>} />
             <Route path="/" element={<Protected><Index /></Protected>} />
             <Route path="/chat" element={<Protected><WithLayout><ChatPage /></WithLayout></Protected>} />
-            <Route path="/cupons" element={<Protected><WithLayout><CuponsPage /></WithLayout></Protected>} />
+            <Route path="/gerador" element={<Protected><WithLayout><ImageGeneratorPage /></WithLayout></Protected>} />
             <Route path="/relatorios" element={<Protected><WithLayout><RelatoriosPage /></WithLayout></Protected>} />
             <Route path="/biblioteca" element={<Protected><WithLayout><BibliotecaPage /></WithLayout></Protected>} />
             <Route path="/configuracoes" element={<Protected><WithLayout><ConfiguracoesPage /></WithLayout></Protected>} />

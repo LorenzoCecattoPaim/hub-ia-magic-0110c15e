@@ -18,8 +18,8 @@ import {
 
 const mainItems = [
   { title: "Marketing", url: "/", icon: Megaphone },
+  { title: "Gerador IA", url: "/gerador", icon: ImageIcon },
   { title: "Chat IA", url: "/chat", icon: Bot },
-  { title: "Cupons", url: "/cupons", icon: Ticket },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
   { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
 ];
