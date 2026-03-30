@@ -129,6 +129,7 @@ export type Database = {
           id: string
           image_url: string
           model: string
+          negative_prompt: string | null
           optimized_prompt: string | null
           prompt: string
           quality: string
@@ -140,6 +141,7 @@ export type Database = {
           id?: string
           image_url: string
           model: string
+          negative_prompt?: string | null
           optimized_prompt?: string | null
           prompt: string
           quality?: string
@@ -151,6 +153,7 @@ export type Database = {
           id?: string
           image_url?: string
           model?: string
+          negative_prompt?: string | null
           optimized_prompt?: string | null
           prompt?: string
           quality?: string
