@@ -31,6 +31,10 @@ RULES:
 - Add camera (if applicable): 50mm lens, depth of field, wide angle, close-up
 - Always add quality tags: 8k, highly detailed, sharp focus, professional composition
 
+CRITICAL LENGTH RULE:
+- The "prompt" field MUST be under 1400 characters. Be concise but descriptive.
+- Do NOT repeat tags or add redundant descriptions.
+
 NEGATIVE PROMPT (MANDATORY):
 Always include: blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text
 
@@ -41,6 +45,9 @@ OUTPUT FORMAT (STRICT JSON ONLY):
 }
 
 DO NOT add explanations.`;
+
+const DEFAULT_NEGATIVE = "blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text";
+const MAX_PROMPT_LENGTH = 1450;
 
 async function optimizePrompt(
   userInput: string,
@@ -64,10 +71,13 @@ async function optimizePrompt(
         { role: "user", content },
       ],
       response_format: { type: "json_object" },
+      max_tokens: 600,
     }),
   });
 
   if (!response.ok) {
+    const errText = await response.text();
+    console.error("GPT API error:", response.status, errText);
     throw new Error(`GPT API error: ${response.status}`);
   }
 
@@ -75,15 +85,26 @@ async function optimizePrompt(
   const text = data.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("Empty GPT response");
 
+  console.log("GPT raw response length:", text.length);
+
   const parsed = JSON.parse(text);
   if (!parsed.prompt || typeof parsed.prompt !== "string") {
     throw new Error("Invalid GPT JSON structure");
   }
 
-  return {
-    prompt: parsed.prompt,
-    negative_prompt: parsed.negative_prompt || "blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text",
-  };
+  // Truncate prompt if it exceeds Leonardo's limit
+  let finalPrompt = parsed.prompt;
+  if (finalPrompt.length > MAX_PROMPT_LENGTH) {
+    console.warn(`Prompt too long (${finalPrompt.length}), truncating to ${MAX_PROMPT_LENGTH}`);
+    finalPrompt = finalPrompt.substring(0, MAX_PROMPT_LENGTH);
+  }
+
+  let negPrompt = parsed.negative_prompt || DEFAULT_NEGATIVE;
+  if (negPrompt.length > MAX_PROMPT_LENGTH) {
+    negPrompt = negPrompt.substring(0, MAX_PROMPT_LENGTH);
+  }
+
+  return { prompt: finalPrompt, negative_prompt: negPrompt };
 }
 
 async function generateImageLeonardo(
@@ -91,7 +112,8 @@ async function generateImageLeonardo(
   negativePrompt: string,
   leonardoKey: string
 ): Promise<string> {
-  // Step 1: Create generation
+  console.log("Leonardo request - prompt length:", prompt.length, "neg length:", negativePrompt.length);
+
   const createRes = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
     method: "POST",
     headers: {
@@ -123,30 +145,37 @@ async function generateImageLeonardo(
     throw new Error("leonardo_generation_failed");
   }
 
-  // Step 2: Poll for completion (max ~60s)
-  const maxAttempts = 30;
+  console.log("Leonardo generationId:", generationId);
+
+  // Poll for completion (max ~90s)
+  const maxAttempts = 45;
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, 2000));
 
     const pollRes = await fetch(
       `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
-      {
-        headers: { Authorization: `Bearer ${leonardoKey}` },
-      }
+      { headers: { Authorization: `Bearer ${leonardoKey}` } }
     );
 
-    if (!pollRes.ok) continue;
+    if (!pollRes.ok) {
+      console.warn("Poll failed, attempt", i, pollRes.status);
+      continue;
+    }
 
     const pollData = await pollRes.json();
     const gen = pollData?.generations_by_pk;
 
     if (gen?.status === "COMPLETE") {
       const imageUrl = gen.generated_images?.[0]?.url;
-      if (imageUrl) return imageUrl;
+      if (imageUrl) {
+        console.log("Image generated successfully:", imageUrl.substring(0, 80));
+        return imageUrl;
+      }
       throw new Error("leonardo_no_image_url");
     }
 
     if (gen?.status === "FAILED") {
+      console.error("Leonardo generation failed");
       throw new Error("leonardo_generation_failed");
     }
   }
@@ -184,6 +213,10 @@ Deno.serve(async (req) => {
     if (!userInput || userInput.length < 3 || userInput.length > 2000) {
       return jsonResponse({ error: "invalid_prompt" }, 400);
     }
+
+    console.log("=== Generate Image Request ===");
+    console.log("User:", user.id, "| Quality:", quality, "| Template:", template);
+    console.log("Input:", userInput.substring(0, 100));
 
     const creditCost = quality === "pro" ? 15 : 5;
 
@@ -236,16 +269,16 @@ Deno.serve(async (req) => {
     let templateContext = "";
     switch (template) {
       case "instagram":
-        templateContext = "Instagram post, square format 1:1, vibrant colors, social media ready, eye-catching, modern design";
+        templateContext = "Instagram post, square 1:1, vibrant, social media ready";
         break;
       case "logo":
-        templateContext = "Logo design, clean, minimalist, professional, vector style, on a solid white background";
+        templateContext = "Logo, clean, minimalist, vector style, white background";
         break;
       case "ad":
-        templateContext = "Advertisement banner, eye-catching, commercial, bold text space, product promotion, marketing";
+        templateContext = "Ad banner, eye-catching, commercial, bold, marketing";
         break;
       case "product":
-        templateContext = "Product photography, studio lighting, clean background, professional e-commerce style, high detail";
+        templateContext = "Product photo, studio lighting, clean background, e-commerce";
         break;
     }
 
@@ -265,11 +298,12 @@ Deno.serve(async (req) => {
         negativePrompt = result.negative_prompt;
       } catch (retryError) {
         console.error("GPT retry also failed:", retryError);
-        // Fallback: use raw input
-        optimizedPrompt = userInput;
-        negativePrompt = "blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text";
+        optimizedPrompt = userInput.substring(0, MAX_PROMPT_LENGTH);
+        negativePrompt = DEFAULT_NEGATIVE;
       }
     }
+
+    console.log("Optimized prompt length:", optimizedPrompt.length);
 
     // STEP 2: Leonardo AI image generation
     let imageUrl: string;
@@ -282,7 +316,7 @@ Deno.serve(async (req) => {
     }
 
     // STEP 3: Save record
-    await supabaseAdmin.from("generated_images").insert({
+    const { error: insertError } = await supabaseAdmin.from("generated_images").insert({
       user_id: user.id,
       prompt: userInput,
       optimized_prompt: optimizedPrompt,
@@ -292,6 +326,7 @@ Deno.serve(async (req) => {
       quality,
       credits_used: creditCost,
     });
+    if (insertError) console.error("Insert error:", insertError);
 
     // STEP 4: Deduct credits
     const { error: deductError } = await supabaseAdmin.rpc("deduct_credits", {
@@ -315,6 +350,8 @@ Deno.serve(async (req) => {
       .select("balance")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    console.log("=== Generation Complete ===");
 
     return jsonResponse({
       image_url: imageUrl,
