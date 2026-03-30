@@ -44,6 +44,7 @@ export type GenerateImageResult = {
   image_url: string;
   prompt: string;
   optimized_prompt: string;
+  negative_prompt: string;
   model: string;
   credits_used: number;
   credits_remaining: number;
