@@ -450,6 +450,16 @@ export default function ImageGeneratorPage() {
                         </p>
                       </div>
                     )}
+                  {selectedImage.negative_prompt && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                        Negative Prompt
+                      </p>
+                      <p className="text-sm text-foreground bg-secondary/50 rounded-xl p-3">
+                        {selectedImage.negative_prompt}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Badge variant="outline" className="text-[10px]">
                       {selectedImage.quality === "pro" ? "Alta Qualidade" : "Rápido"}
