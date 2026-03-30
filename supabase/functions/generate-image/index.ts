@@ -13,6 +13,147 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
+const GPT_SYSTEM_PROMPT = `You are a prompt engineering expert specialized in AI image generation.
+
+Transform any user input into a highly detailed and optimized prompt for Leonardo AI.
+
+STRUCTURE:
+[MAIN SUBJECT], [STYLE], [DETAILS], [LIGHTING], [CAMERA], [QUALITY TAGS]
+
+RULES:
+- Expand the idea with rich visual details, environment, textures, and mood.
+- Add style automatically:
+  Realistic → photorealistic, ultra detailed
+  Fantasy → cinematic, epic, fantasy art
+  Logo → minimalist, vector, clean design
+  Anime → anime style, vibrant colors
+- Add lighting: soft lighting, dramatic lighting, neon lighting, golden hour
+- Add camera (if applicable): 50mm lens, depth of field, wide angle, close-up
+- Always add quality tags: 8k, highly detailed, sharp focus, professional composition
+
+NEGATIVE PROMPT (MANDATORY):
+Always include: blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text
+
+OUTPUT FORMAT (STRICT JSON ONLY):
+{
+  "prompt": "...",
+  "negative_prompt": "..."
+}
+
+DO NOT add explanations.`;
+
+async function optimizePrompt(
+  userInput: string,
+  templateContext: string,
+  apiKey: string
+): Promise<{ prompt: string; negative_prompt: string }> {
+  const content = templateContext
+    ? `${userInput}\n\nContext/Style: ${templateContext}`
+    : userInput;
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "openai/gpt-5-mini",
+      messages: [
+        { role: "system", content: GPT_SYSTEM_PROMPT },
+        { role: "user", content },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`GPT API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content?.trim();
+  if (!text) throw new Error("Empty GPT response");
+
+  const parsed = JSON.parse(text);
+  if (!parsed.prompt || typeof parsed.prompt !== "string") {
+    throw new Error("Invalid GPT JSON structure");
+  }
+
+  return {
+    prompt: parsed.prompt,
+    negative_prompt: parsed.negative_prompt || "blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text",
+  };
+}
+
+async function generateImageLeonardo(
+  prompt: string,
+  negativePrompt: string,
+  leonardoKey: string
+): Promise<string> {
+  // Step 1: Create generation
+  const createRes = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${leonardoKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      negative_prompt: negativePrompt,
+      width: 1024,
+      height: 1024,
+      num_images: 1,
+      modelId: "b24e16ff-06e3-43eb-8d33-4416c2d75876",
+      presetStyle: "DYNAMIC",
+    }),
+  });
+
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    console.error("Leonardo create error:", createRes.status, errText);
+    if (createRes.status === 429) throw new Error("rate_limited");
+    throw new Error("leonardo_generation_failed");
+  }
+
+  const createData = await createRes.json();
+  const generationId = createData?.sdGenerationJob?.generationId;
+  if (!generationId) {
+    console.error("No generationId:", JSON.stringify(createData).substring(0, 500));
+    throw new Error("leonardo_generation_failed");
+  }
+
+  // Step 2: Poll for completion (max ~60s)
+  const maxAttempts = 30;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const pollRes = await fetch(
+      `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
+      {
+        headers: { Authorization: `Bearer ${leonardoKey}` },
+      }
+    );
+
+    if (!pollRes.ok) continue;
+
+    const pollData = await pollRes.json();
+    const gen = pollData?.generations_by_pk;
+
+    if (gen?.status === "COMPLETE") {
+      const imageUrl = gen.generated_images?.[0]?.url;
+      if (imageUrl) return imageUrl;
+      throw new Error("leonardo_no_image_url");
+    }
+
+    if (gen?.status === "FAILED") {
+      throw new Error("leonardo_generation_failed");
+    }
+  }
+
+  throw new Error("leonardo_timeout");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -36,11 +177,11 @@ Deno.serve(async (req) => {
     if (userError || !user) return jsonResponse({ error: "not_authenticated" }, 401);
 
     const body = await req.json();
-    const prompt = body?.prompt?.trim();
+    const userInput = body?.prompt?.trim();
     const quality: string = body?.quality === "pro" ? "pro" : "fast";
     const template: string = body?.template || "";
 
-    if (!prompt || prompt.length < 3 || prompt.length > 2000) {
+    if (!userInput || userInput.length < 3 || userInput.length > 2000) {
       return jsonResponse({ error: "invalid_prompt" }, 400);
     }
 
@@ -62,14 +203,11 @@ Deno.serve(async (req) => {
       }, 402);
     }
 
-    // Rate limit: 5 image generations per minute
+    // Rate limit: 5 per minute
     const { error: rateInsertError } = await supabaseAdmin
       .from("rate_limits")
       .insert({ user_id: user.id });
-
-    if (rateInsertError) {
-      console.error("Rate limit insert error:", rateInsertError);
-    }
+    if (rateInsertError) console.error("Rate limit insert error:", rateInsertError);
 
     const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
     const { count: rateCount } = await supabaseAdmin
@@ -83,8 +221,14 @@ Deno.serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const LEONARDO_API_KEY = Deno.env.get("LEONARDO_API_KEY");
+
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY not configured");
+      return jsonResponse({ error: "internal_error" }, 500);
+    }
+    if (!LEONARDO_API_KEY) {
+      console.error("LEONARDO_API_KEY not configured");
       return jsonResponse({ error: "internal_error" }, 500);
     }
 
@@ -105,135 +249,62 @@ Deno.serve(async (req) => {
         break;
     }
 
-    // Step 1: Enhance prompt using text model
-    let optimizedPrompt = prompt;
+    // STEP 1: GPT prompt optimization (with 1 retry)
+    let optimizedPrompt: string;
+    let negativePrompt: string;
+
     try {
-      const enhanceResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-lite",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an expert prompt engineer for AI image generation. Transform the user's brief description into a detailed, high-quality image generation prompt in English. Include visual style, lighting, camera angle, colors, mood, composition. Keep it under 150 words. Output ONLY the enhanced prompt text, nothing else.",
-            },
-            {
-              role: "user",
-              content: `${prompt}${templateContext ? `\n\nContext/Style: ${templateContext}` : ""}`,
-            },
-          ],
-        }),
-      });
-
-      if (enhanceResponse.ok) {
-        const enhanceData = await enhanceResponse.json();
-        const enhanced = enhanceData.choices?.[0]?.message?.content?.trim();
-        if (enhanced && enhanced.length > 10) {
-          optimizedPrompt = enhanced;
-        }
+      const result = await optimizePrompt(userInput, templateContext, LOVABLE_API_KEY);
+      optimizedPrompt = result.prompt;
+      negativePrompt = result.negative_prompt;
+    } catch (firstError) {
+      console.error("GPT first attempt failed, retrying:", firstError);
+      try {
+        const result = await optimizePrompt(userInput, templateContext, LOVABLE_API_KEY);
+        optimizedPrompt = result.prompt;
+        negativePrompt = result.negative_prompt;
+      } catch (retryError) {
+        console.error("GPT retry also failed:", retryError);
+        // Fallback: use raw input
+        optimizedPrompt = userInput;
+        negativePrompt = "blurry, low quality, distorted, deformed, bad anatomy, extra limbs, watermark, text";
       }
-    } catch (e) {
-      console.error("Prompt enhancement failed, using original:", e);
     }
 
-    // Step 2: Generate image
-    const imageModel =
-      quality === "pro"
-        ? "google/gemini-3-pro-image-preview"
-        : "google/gemini-3.1-flash-image-preview";
-
-    const imageResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: imageModel,
-        messages: [{ role: "user", content: optimizedPrompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-
-    if (!imageResponse.ok) {
-      const status = imageResponse.status;
-      if (status === 429) return jsonResponse({ error: "rate_limited" }, 429);
-      if (status === 402) return jsonResponse({ error: "ai_payment_required" }, 502);
-      const errText = await imageResponse.text();
-      console.error("Image generation error:", status, errText);
+    // STEP 2: Leonardo AI image generation
+    let imageUrl: string;
+    try {
+      imageUrl = await generateImageLeonardo(optimizedPrompt, negativePrompt, LEONARDO_API_KEY);
+    } catch (err: any) {
+      console.error("Leonardo error:", err.message);
+      if (err.message === "rate_limited") return jsonResponse({ error: "rate_limited" }, 429);
       return jsonResponse({ error: "image_generation_failed" }, 502);
     }
 
-    const imageData = await imageResponse.json();
-    const base64Image =
-      imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!base64Image) {
-      console.error("No image in response:", JSON.stringify(imageData).substring(0, 500));
-      return jsonResponse({ error: "image_generation_failed" }, 502);
-    }
-
-    // Step 3: Upload to storage
-    // Ensure bucket exists
-    await supabaseAdmin.storage
-      .createBucket("generated-images", { public: true })
-      .catch(() => {});
-
-    const imageId = crypto.randomUUID();
-    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = Uint8Array.from(atob(base64Data), (c) =>
-      c.charCodeAt(0)
-    );
-
-    const filePath = `${user.id}/${imageId}.png`;
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("generated-images")
-      .upload(filePath, imageBytes, {
-        contentType: "image/png",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      return jsonResponse({ error: "upload_failed" }, 500);
-    }
-
-    const { data: urlData } = supabaseAdmin.storage
-      .from("generated-images")
-      .getPublicUrl(filePath);
-    const imageUrl = urlData.publicUrl;
-
-    // Step 4: Save record
+    // STEP 3: Save record
     await supabaseAdmin.from("generated_images").insert({
       user_id: user.id,
-      prompt,
+      prompt: userInput,
       optimized_prompt: optimizedPrompt,
+      negative_prompt: negativePrompt,
       image_url: imageUrl,
-      model: imageModel,
+      model: "leonardo-ai",
       quality,
       credits_used: creditCost,
     });
 
-    // Step 5: Deduct credits
+    // STEP 4: Deduct credits
     const { error: deductError } = await supabaseAdmin.rpc("deduct_credits", {
       p_user_id: user.id,
       p_amount: creditCost,
       p_description: `Geração de imagem (${quality === "pro" ? "Alta qualidade" : "Rápido"})`,
     });
+    if (deductError) console.error("Credit deduction error:", deductError);
 
-    if (deductError) {
-      console.error("Credit deduction error:", deductError);
-    }
-
-    // Step 6: Log usage
+    // STEP 5: Log usage
     await supabaseAdmin.from("ai_usage_logs").insert({
       user_id: user.id,
-      model: imageModel,
+      model: "leonardo-ai",
       tokens: 0,
       cost: creditCost,
       cost_usd: quality === "pro" ? 0.03 : 0.01,
@@ -247,9 +318,10 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       image_url: imageUrl,
-      prompt,
+      prompt: userInput,
       optimized_prompt: optimizedPrompt,
-      model: imageModel,
+      negative_prompt: negativePrompt,
+      model: "leonardo-ai",
       credits_used: creditCost,
       credits_remaining: updatedCredits?.balance ?? 0,
     });
