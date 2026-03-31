@@ -55,16 +55,31 @@ export type GenerateImageResult = {
   credits_remaining: number;
 };
 
+function validateGenerateImageResponse(data: any): GenerateImageResult {
+  if (!data || !Array.isArray(data.images) || data.images.length === 0) {
+    throw new Error("Resposta inválida do gerador de imagens");
+  }
+  const validImages = data.images.filter((img: any) => typeof img?.image_url === "string");
+  if (validImages.length === 0) {
+    throw new Error("Nenhuma imagem válida retornada");
+  }
+  return data as GenerateImageResult;
+}
+
 export function useGenerateImage() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: GenerateImageParams): Promise<GenerateImageResult> => {
+      console.log("[ImageGen] Request start", params);
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: params,
       });
 
+      console.log("[ImageGen] Raw response", { data, error });
+
       if (error) {
+        console.error("[ImageGen] Request error", error);
         throw new Error(data?.error || error.message || "Erro ao gerar imagem");
       }
 
@@ -82,7 +97,7 @@ export function useGenerateImage() {
         throw err;
       }
 
-      return data;
+      return validateGenerateImageResponse(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["generated-images"] });

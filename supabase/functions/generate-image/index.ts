@@ -1,9 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.100.1";
+import { captureSentry } from "../_shared/monitoring.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -12,6 +14,8 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+const SENTRY_DSN = Deno.env.get("SENTRY_DSN");
 
 const GPT_SYSTEM_PROMPT = `You are a world-class prompt engineer for AI image generation (Leonardo AI).
 
@@ -50,37 +54,53 @@ interface OptimizedPrompts {
   negative_prompt: string;
 }
 
+async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 90_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function optimizePrompts(
   userInput: string,
   templateContext: string,
-  apiKey: string
+  apiKey: string,
+  requestId: string
 ): Promise<OptimizedPrompts> {
   const content = templateContext
     ? `${userInput}\n\nContext/Style: ${templateContext}`
     : userInput;
 
-  console.log("[GPT] Sending optimization request...");
+  console.log(`[${requestId}] [GPT] Sending optimization request...`);
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
+  const response = await fetchWithTimeout(
+    "https://ai.gateway.lovable.dev/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-5-mini",
+        messages: [
+          { role: "system", content: GPT_SYSTEM_PROMPT },
+          { role: "user", content },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 800,
+      }),
     },
-    body: JSON.stringify({
-      model: "openai/gpt-5-mini",
-      messages: [
-        { role: "system", content: GPT_SYSTEM_PROMPT },
-        { role: "user", content },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 800,
-    }),
-  });
+    60_000
+  );
 
   if (!response.ok) {
     const errText = await response.text();
-    console.error("[GPT] API error:", response.status, errText);
+    console.error(`[${requestId}] [GPT] API error:`, response.status, errText);
     throw new Error(`GPT API error: ${response.status}`);
   }
 
@@ -88,7 +108,7 @@ async function optimizePrompts(
   const text = data.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("Empty GPT response");
 
-  console.log("[GPT] Response received, length:", text.length);
+  console.log(`[${requestId}] [GPT] Response received, length:`, text.length);
 
   const parsed = JSON.parse(text);
 
@@ -111,30 +131,36 @@ async function generateImageLeonardo(
   negativePrompt: string,
   leonardoKey: string,
   width: number,
-  height: number
+  height: number,
+  requestId: string
 ): Promise<string> {
-  console.log("[Leonardo] Creating generation — prompt length:", prompt.length, "size:", width, "x", height);
+  console.log(`[${requestId}] [Leonardo] Creating generation - prompt length:`, prompt.length, "size:", width, "x", height);
 
-  const createRes = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${leonardoKey}`,
-      "Content-Type": "application/json",
+  const createRes = await fetchWithTimeout(
+    "https://cloud.leonardo.ai/api/rest/v1/generations",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${leonardoKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        negative_prompt: negativePrompt,
+        width,
+        height,
+        num_images: 1,
+        modelId: "b24e16ff-06e3-43eb-8d33-4416c2d75876",
+        presetStyle: "DYNAMIC",
+      }),
     },
-    body: JSON.stringify({
-      prompt,
-      negative_prompt: negativePrompt,
-      width,
-      height,
-      num_images: 1,
-      modelId: "b24e16ff-06e3-43eb-8d33-4416c2d75876",
-      presetStyle: "DYNAMIC",
-    }),
-  });
+    60_000
+  );
 
   if (!createRes.ok) {
     const errText = await createRes.text();
-    console.error("[Leonardo] Create error:", createRes.status, errText);
+    console.error(`[${requestId}] [Leonardo] Create error:`, createRes.status, errText);
     if (createRes.status === 429) throw new Error("rate_limited");
     throw new Error("leonardo_generation_failed");
   }
@@ -142,23 +168,24 @@ async function generateImageLeonardo(
   const createData = await createRes.json();
   const generationId = createData?.sdGenerationJob?.generationId;
   if (!generationId) {
-    console.error("[Leonardo] No generationId:", JSON.stringify(createData).substring(0, 500));
+    console.error(`[${requestId}] [Leonardo] No generationId:`, JSON.stringify(createData).substring(0, 500));
     throw new Error("leonardo_generation_failed");
   }
 
-  console.log("[Leonardo] generationId:", generationId);
+  console.log(`[${requestId}] [Leonardo] generationId:`, generationId);
 
   // Poll for completion (max ~90s)
   for (let i = 0; i < 45; i++) {
     await new Promise((r) => setTimeout(r, 2000));
 
-    const pollRes = await fetch(
+    const pollRes = await fetchWithTimeout(
       `https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`,
-      { headers: { Authorization: `Bearer ${leonardoKey}` } }
+      { headers: { Authorization: `Bearer ${leonardoKey}`, Accept: "application/json" } },
+      30_000
     );
 
     if (!pollRes.ok) {
-      console.warn("[Leonardo] Poll failed, attempt", i, pollRes.status);
+      console.warn(`[${requestId}] [Leonardo] Poll failed, attempt`, i, pollRes.status);
       continue;
     }
 
@@ -168,44 +195,57 @@ async function generateImageLeonardo(
     if (gen?.status === "COMPLETE") {
       const imageUrl = gen.generated_images?.[0]?.url;
       if (imageUrl) {
-        console.log("[Leonardo] Image ready:", imageUrl.substring(0, 80));
+        console.log(`[${requestId}] [Leonardo] Image ready:`, imageUrl.substring(0, 80));
         return imageUrl;
       }
       throw new Error("leonardo_no_image_url");
     }
 
     if (gen?.status === "FAILED") {
-      console.error("[Leonardo] Generation failed");
+      console.error(`[${requestId}] [Leonardo] Generation failed`);
       throw new Error("leonardo_generation_failed");
     }
   }
 
   throw new Error("leonardo_timeout");
 }
-
-Deno.serve(async (req) => {
+export async function handleGenerateImage(req: Request, deps: { createClientFn?: typeof createClient } = {}) {
+  const createClientFn = deps.createClientFn ?? createClient;
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.warn(`[${requestId}] Missing or invalid Authorization header`);
       return jsonResponse({ error: "not_authenticated" }, 401);
     }
 
-    const supabaseAdmin = createClient(
+    const supabaseAdmin = createClientFn(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-    const supabase = createClient(
+    const supabase = createClientFn(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) return jsonResponse({ error: "not_authenticated" }, 401);
+    if (userError || !user) {
+      console.warn(`[${requestId}] Auth error:`, userError?.message);
+      return jsonResponse({ error: "not_authenticated" }, 401);
+    }
 
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      console.warn(`[${requestId}] Invalid JSON payload`);
+      return jsonResponse({ error: "invalid_json" }, 400);
+    }
     const userInput = body?.prompt?.trim();
     const quality: string = body?.quality === "pro" ? "pro" : "fast";
     const template: string = body?.template || "";
@@ -215,9 +255,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "invalid_prompt" }, 400);
     }
 
-    console.log("=== Generate Image Request ===");
-    console.log("User:", user.id, "| Quality:", quality, "| Template:", template, "| Format:", format);
-    console.log("Input:", userInput.substring(0, 100));
+    console.log(`[${requestId}] === Generate Image Request ===`);
+    console.log(`[${requestId}] User:`, user.id, "| Quality:", quality, "| Template:", template, "| Format:", format);
+    console.log(`[${requestId}] Input:`, userInput.substring(0, 120));
 
     // Credit cost — covers both images
     const creditCost = quality === "pro" ? 15 : 5;
@@ -228,6 +268,7 @@ Deno.serve(async (req) => {
       .select("balance")
       .eq("user_id", user.id)
       .maybeSingle();
+
 
     if (!credits || credits.balance < creditCost) {
       return jsonResponse({
@@ -242,7 +283,10 @@ Deno.serve(async (req) => {
     const { error: rateInsertError } = await supabaseAdmin
       .from("rate_limits")
       .insert({ user_id: user.id });
-    if (rateInsertError) console.error("[RateLimit] Insert error:", rateInsertError);
+    if (rateInsertError) {
+      console.error(`[${requestId}] [RateLimit] Insert error:`, rateInsertError);
+      return jsonResponse({ error: "internal_error" }, 500);
+    }
 
     const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
     const { count: rateCount } = await supabaseAdmin
@@ -259,12 +303,22 @@ Deno.serve(async (req) => {
     const LEONARDO_API_KEY = Deno.env.get("LEONARDO_API_KEY");
 
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
-      return jsonResponse({ error: "internal_error" }, 500);
+      console.error(`[${requestId}] LOVABLE_API_KEY not configured`);
+      await captureSentry(SENTRY_DSN, {
+        message: "lovable_api_key_missing",
+        level: "error",
+        tags: { request_id: requestId },
+      });
+      return jsonResponse({ error: "missing_api_key" }, 500);
     }
     if (!LEONARDO_API_KEY) {
-      console.error("LEONARDO_API_KEY not configured");
-      return jsonResponse({ error: "internal_error" }, 500);
+      console.error(`[${requestId}] LEONARDO_API_KEY not configured`);
+      await captureSentry(SENTRY_DSN, {
+        message: "leonardo_api_key_missing",
+        level: "error",
+        tags: { request_id: requestId },
+      });
+      return jsonResponse({ error: "missing_api_key" }, 500);
     }
 
     // Dimensions based on format
@@ -298,13 +352,13 @@ Deno.serve(async (req) => {
     let optimized: OptimizedPrompts;
 
     try {
-      optimized = await optimizePrompts(userInput, templateContext, LOVABLE_API_KEY);
+      optimized = await optimizePrompts(userInput, templateContext, LOVABLE_API_KEY, requestId);
     } catch (firstError) {
-      console.error("[GPT] First attempt failed, retrying:", firstError);
+      console.error(`[${requestId}] [GPT] First attempt failed, retrying:`, firstError);
       try {
-        optimized = await optimizePrompts(userInput, templateContext, LOVABLE_API_KEY);
+        optimized = await optimizePrompts(userInput, templateContext, LOVABLE_API_KEY, requestId);
       } catch (retryError) {
-        console.error("[GPT] Retry also failed, using fallback:", retryError);
+        console.error(`[${requestId}] [GPT] Retry also failed, using fallback:`, retryError);
         const fallback = `${userInput}, 4k, ultra detailed, sharp focus, professional composition, high quality`.substring(0, MAX_PROMPT_LENGTH);
         optimized = {
           prompt_1: fallback,
@@ -314,8 +368,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("[Pipeline] Prompt 1 length:", optimized.prompt_1.length);
-    console.log("[Pipeline] Prompt 2 length:", optimized.prompt_2.length);
+    console.log(`[${requestId}] [Pipeline] Prompt 1 length:`, optimized.prompt_1.length);
+    console.log(`[${requestId}] [Pipeline] Prompt 2 length:`, optimized.prompt_2.length);
 
     // STEP 2: Generate BOTH images in parallel via Leonardo AI
     let image1Url: string;
@@ -323,14 +377,29 @@ Deno.serve(async (req) => {
 
     try {
       const [img1, img2] = await Promise.all([
-        generateImageLeonardo(optimized.prompt_1, optimized.negative_prompt, LEONARDO_API_KEY, width, height),
-        generateImageLeonardo(optimized.prompt_2, optimized.negative_prompt, LEONARDO_API_KEY, width, height),
+        generateImageLeonardo(optimized.prompt_1, optimized.negative_prompt, LEONARDO_API_KEY, width, height, requestId),
+        generateImageLeonardo(optimized.prompt_2, optimized.negative_prompt, LEONARDO_API_KEY, width, height, requestId),
       ]);
       image1Url = img1;
       image2Url = img2;
     } catch (err: any) {
-      console.error("[Leonardo] Error:", err.message);
+      console.error(`[${requestId}] [Leonardo] Error:`, err.message);
+      await captureSentry(SENTRY_DSN, {
+        message: "leonardo_generation_failed",
+        level: "error",
+        tags: { request_id: requestId },
+        extra: { error: err.message },
+      });
       if (err.message === "rate_limited") return jsonResponse({ error: "rate_limited" }, 429);
+      return jsonResponse({ error: "image_generation_failed" }, 502);
+    }
+
+    if (!image1Url || !image2Url) {
+      await captureSentry(SENTRY_DSN, {
+        message: "generate_image_empty_response",
+        level: "error",
+        tags: { request_id: requestId },
+      });
       return jsonResponse({ error: "image_generation_failed" }, 502);
     }
 
@@ -340,16 +409,34 @@ Deno.serve(async (req) => {
       p_amount: creditCost,
       p_description: `Geração de imagem (${quality === "pro" ? "Alta qualidade" : "Rápido"})`,
     });
-    if (deductError) console.error("[Credits] Deduction error:", deductError);
+    if (deductError) {
+      console.error(`[${requestId}] [Credits] Deduction error:`, deductError);
+      await captureSentry(SENTRY_DSN, {
+        message: "generate_image_credit_deduction_failed",
+        level: "error",
+        tags: { request_id: requestId },
+        extra: { error: deductError.message || String(deductError) },
+      });
+      return jsonResponse({ error: "credit_deduction_failed" }, 500);
+    }
 
     // STEP 4: Log usage
-    await supabaseAdmin.from("ai_usage_logs").insert({
+    const { error: logError } = await supabaseAdmin.from("ai_usage_logs").insert({
       user_id: user.id,
       model: "leonardo-ai",
       tokens: 0,
       cost: creditCost,
       cost_usd: quality === "pro" ? 0.03 : 0.01,
     });
+    if (logError) {
+      console.error(`[${requestId}] AI usage log error:`, logError);
+      await captureSentry(SENTRY_DSN, {
+        message: "generate_image_usage_log_failed",
+        level: "error",
+        tags: { request_id: requestId },
+        extra: { error: logError.message || String(logError) },
+      });
+    }
 
     const { data: updatedCredits } = await supabaseAdmin
       .from("credits")
@@ -357,7 +444,26 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    console.log("=== Generation Complete — 2 images ===");
+    const expectedBalance = (credits.balance ?? 0) - creditCost;
+    if (updatedCredits?.balance != null && updatedCredits.balance !== expectedBalance) {
+      console.error(`[${requestId}] Credits mismatch`, {
+        expected: expectedBalance,
+        actual: updatedCredits.balance,
+      });
+      await captureSentry(SENTRY_DSN, {
+        message: "generate_image_credits_mismatch",
+        level: "error",
+        tags: { request_id: requestId },
+        extra: { expected: expectedBalance, actual: updatedCredits.balance },
+      });
+    }
+
+    const durationMs = Date.now() - startedAt;
+    console.log(`[${requestId}] === Generation Complete — 2 images ===`, {
+      user_id: user.id,
+      credits_used: creditCost,
+      duration_ms: durationMs,
+    });
 
     return jsonResponse({
       images: [
@@ -377,7 +483,15 @@ Deno.serve(async (req) => {
       credits_remaining: updatedCredits?.balance ?? 0,
     });
   } catch (error) {
-    console.error("[Fatal] Edge function error:", error);
+    console.error(`[${requestId}] [Fatal] Edge function error:`, error);
+    await captureSentry(SENTRY_DSN, {
+      message: "generate_image_unhandled_error",
+      level: "error",
+      tags: { request_id: requestId },
+      extra: { error: String(error) },
+    });
     return jsonResponse({ error: "internal_error" }, 500);
   }
-});
+}
+
+Deno.serve((req) => handleGenerateImage(req));

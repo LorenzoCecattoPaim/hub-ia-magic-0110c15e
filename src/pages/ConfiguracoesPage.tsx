@@ -1,4 +1,4 @@
-import { Key, Building2, Bell, Plug } from "lucide-react";
+import { Building2, Bell, Plug } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 const integrations = [
-  { name: "OpenRouter", description: "Multi-modelo IA (GPT, Claude, Gemini, Grok)", connected: false },
+  { name: "Lovable AI", description: "Gateway OpenAI para chat e prompts", connected: true },
+  { name: "Leonardo AI", description: "Geração de imagens por IA", connected: true },
   { name: "WhatsApp", description: "Evolution API — Envio de mensagens", connected: false },
   { name: "Omie", description: "Sistema financeiro e ERP", connected: false },
   { name: "Bling", description: "ERP e gestão de estoque", connected: false },
@@ -45,31 +46,6 @@ export default function ConfiguracoesPage() {
           </div>
           <Button className="gradient-primary text-primary-foreground hover:opacity-90">
             Salvar
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* API Keys */}
-      <Card className="bg-card border-border shadow-card">
-        <CardHeader className="border-b border-border">
-          <CardTitle className="font-display text-lg flex items-center gap-2">
-            <Key className="h-5 w-5 text-primary" />
-            Chaves de API
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6 space-y-4">
-          <div className="space-y-2">
-            <Label className="text-foreground">OpenRouter API Key</Label>
-            <Input type="password" placeholder="sk-or-..." className="bg-secondary border-border font-mono" />
-            <p className="text-xs text-muted-foreground">
-              Obtenha sua chave em{" "}
-              <a href="https://openrouter.ai" target="_blank" rel="noopener" className="text-primary hover:underline">
-                openrouter.ai
-              </a>
-            </p>
-          </div>
-          <Button className="gradient-primary text-primary-foreground hover:opacity-90">
-            Salvar Chave
           </Button>
         </CardContent>
       </Card>

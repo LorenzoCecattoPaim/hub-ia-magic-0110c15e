@@ -29,11 +29,21 @@ export function buildPromptWithContext(prompt: string, context?: AiContext) {
 }
 
 export async function sendMessage(message: string): Promise<AiResponse> {
+  const payload = { message };
+  console.log("[AI] Request start", {
+    message_length: message?.length ?? 0,
+    preview: message?.substring(0, 200) ?? "",
+  });
+  console.log("[AI] Payload", payload);
+
   const { data, error } = await supabase.functions.invoke("ai-chat", {
-    body: { message },
+    body: payload,
   });
 
+  console.log("[AI] Raw response", { data, error });
+
   if (error) {
+    console.error("[AI] Request error", error);
     throw new Error(data?.error || error.message || "Erro ao se comunicar com a IA");
   }
 
@@ -43,6 +53,11 @@ export async function sendMessage(message: string): Promise<AiResponse> {
     (err as any).balance = data.balance;
     (err as any).required = data.required;
     throw err;
+  }
+
+  if (!data || typeof data.response !== "string") {
+    console.error("[AI] Invalid response format", data);
+    throw new Error("Resposta inválida da IA");
   }
 
   return data;
