@@ -42,7 +42,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <h1 className="font-display text-sm font-bold text-foreground tracking-tight">
-                AI Marketing Hub para Infusion.ia
+                Infusion.AI
               </h1>
               <p className="text-xs text-muted-foreground">Seu hub inteligente de marketing</p>
             </div>

@@ -68,7 +68,7 @@ export default function AuthPage() {
           <div className="gradient-primary rounded-2xl p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
             <Sparkles className="h-8 w-8 text-primary-foreground" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-foreground">AI Marketing Hub para Infusion.ia</h1>
+          <h1 className="font-display text-2xl font-bold text-foreground">Infusion.AI</h1>
           <p className="text-muted-foreground mt-1">
             {isLogin ? "Acesse sua conta" : "Crie sua conta grátis"}
           </p>
