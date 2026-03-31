@@ -74,7 +74,7 @@ async function optimizePrompts(
         { role: "user", content },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 800,
+      max_completion_tokens: 800,
     }),
   });
 
