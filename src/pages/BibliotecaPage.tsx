@@ -1,220 +1,158 @@
-import { useMemo, useRef, useState } from "react";
-import { Upload, Search, FileText, Image, FileSpreadsheet, Filter, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+﻿import { Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import {
-  buildRagContextSummary,
-  buildRagFileEntry,
-  loadRagFiles,
-  removeRagFile,
-  saveRagFiles,
-  type RagFileEntry,
-} from "@/lib/rag";
+import { Card, CardContent } from "@/components/ui/card";
 
-const MAX_SIZE_MB = 20;
-const ACCEPTED_EXTENSIONS = [".pdf", ".xlsx", ".xls", ".csv", ".txt", ".png", ".jpg", ".jpeg"];
+const templates = [
+  {
+    id: "social-launch",
+    title: "Lançamento nas redes",
+    type: "image",
+    description: "Sequência de posts com CTA forte e identidade roxa.",
+    cta: "Usar este modelo",
+  },
+  {
+    id: "email-nurture",
+    title: "Fluxo de nutrição",
+    type: "animation",
+    description: "Animação curta para aquecimento de leads.",
+    cta: "Adaptar",
+  },
+  {
+    id: "promo-banner",
+    title: "Banner promocional",
+    type: "image",
+    description: "Headline direta + destaque do benefício.",
+    cta: "Usar este modelo",
+  },
+  {
+    id: "reels-script",
+    title: "Roteiro para Reels",
+    type: "animation",
+    description: "Storyboard animado para vídeos rápidos.",
+    cta: "Adaptar",
+  },
+  {
+    id: "case-study",
+    title: "Estudo de caso",
+    type: "image",
+    description: "Layout elegante para provas sociais.",
+    cta: "Usar este modelo",
+  },
+  {
+    id: "event-invite",
+    title: "Convite para evento",
+    type: "animation",
+    description: "Convite animado com contagem regressiva.",
+    cta: "Adaptar",
+  },
+  {
+    id: "carousel",
+    title: "Carrossel educativo",
+    type: "image",
+    description: "Slides sequenciais para explicar soluções.",
+    cta: "Usar este modelo",
+  },
+  {
+    id: "landing-highlight",
+    title: "Hero de landing page",
+    type: "image",
+    description: "Hero section com destaque visual intenso.",
+    cta: "Adaptar",
+  },
+];
 
-const iconMap: Record<string, typeof FileText> = {
-  pdf: FileText,
-  csv: FileSpreadsheet,
-  xlsx: FileSpreadsheet,
-  xls: FileSpreadsheet,
-  txt: FileText,
-  png: Image,
-  jpg: Image,
-  jpeg: Image,
-};
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+const featuredTemplates = templates.slice(0, 3);
 
 export default function BibliotecaPage() {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<RagFileEntry[]>(() => loadRagFiles());
-  const [isUploading, setIsUploading] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filteredFiles = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return files;
-    return files.filter((file) => file.name.toLowerCase().includes(term));
-  }, [files, search]);
-
-  const contextSummary = useMemo(() => buildRagContextSummary(files), [files]);
-
-  const handlePickFiles = () => {
-    inputRef.current?.click();
-  };
-
-  const readTextSnippet = (file: File) =>
-    new Promise<string | undefined>((resolve) => {
-      const isText = file.type.startsWith("text/") || file.name.endsWith(".csv") || file.name.endsWith(".txt");
-      if (!isText) {
-        resolve(undefined);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || "").slice(0, 1200));
-      reader.onerror = () => resolve(undefined);
-      reader.readAsText(file);
-    });
-
-  const handleFilesSelected = async (fileList: FileList | null) => {
-    if (!fileList?.length) return;
-    setIsUploading(true);
-    const next: RagFileEntry[] = [];
-    for (const file of Array.from(fileList)) {
-      const extension = `.${file.name.split(".").pop()?.toLowerCase() || ""}`;
-      if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-        toast.error(`Formato não suportado: ${file.name}`);
-        continue;
-      }
-      if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-        toast.error(`Arquivo acima de ${MAX_SIZE_MB}MB: ${file.name}`);
-        continue;
-      }
-      const snippet = await readTextSnippet(file);
-      next.push(buildRagFileEntry(file, snippet));
-    }
-    const updated = [...next, ...files];
-    setFiles(updated);
-    saveRagFiles(updated);
-    setIsUploading(false);
-    if (next.length) {
-      toast.success(`${next.length} arquivo(s) enviados e disponíveis no chat`);
-    }
-  };
-
-  const handleRemove = (id: string) => {
-    const updated = removeRagFile(files, id);
-    setFiles(updated);
-    saveRagFiles(updated);
-  };
-
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Biblioteca de Conteúdo</h1>
-          <p className="text-muted-foreground mt-1">
-            Faça upload de arquivos para a IA conhecer seu negócio e usar no chat
+    <div className="p-6 space-y-10 max-w-7xl mx-auto">
+      <section className="rounded-2xl border border-border shadow-card gradient-primary-soft p-8">
+        <div className="flex flex-col gap-3">
+          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-accent" />
+            Biblioteca para Meu negócio
+          </span>
+          <h1 className="font-display text-3xl font-bold text-foreground">
+            Modelos prontos para acelerar seu marketing
+          </h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Explore exemplos visuais com imagens e animações. Visualize, escolha e adapte modelos
+            prontos para aplicar no seu negócio com poucos cliques.
           </p>
         </div>
-        <Button className="gradient-primary text-primary-foreground hover:opacity-90" onClick={handlePickFiles}>
-          <Upload className="h-4 w-4 mr-2" />
-          Enviar Arquivo
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept={ACCEPTED_EXTENSIONS.join(",")}
-          className="hidden"
-          onChange={(e) => handleFilesSelected(e.target.files)}
-        />
-      </div>
+      </section>
 
-      {/* Upload Zone */}
-      <Card
-        className="border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer bg-card"
-        onClick={handlePickFiles}
-      >
-        <CardContent className="p-10 flex flex-col items-center justify-center text-center">
-          <div className="gradient-primary rounded-2xl p-4 mb-4">
-            <Upload className="h-8 w-8 text-primary-foreground" />
-          </div>
-          <h3 className="font-display text-lg font-semibold text-foreground">
-            {isUploading ? "Enviando arquivos..." : "Arraste arquivos aqui"}
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            PDFs, planilhas Excel e textos que ajudam a IA a entender seu negócio
-          </p>
-          <p className="text-xs text-muted-foreground mt-3">
-            PDF, XLSX, CSV, TXT, JPG, PNG • Máximo {MAX_SIZE_MB}MB por arquivo
-          </p>
-          {contextSummary && (
-            <p className="text-xs text-primary mt-4">
-              Contexto ativo no chat: {files.length} arquivo(s)
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-xl font-semibold text-foreground">Destaques da biblioteca</h2>
+            <p className="text-sm text-muted-foreground">
+              Seleção rápida com os modelos mais usados pela comunidade.
             </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Search */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar arquivos..."
-            className="pl-10 bg-card border-border"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          </div>
+          <Button className="bg-primary text-primary-foreground hover:bg-accent">Ver todos</Button>
         </div>
-        <Button variant="outline" className="border-border text-foreground hover:bg-accent">
-          <Filter className="h-4 w-4 mr-2" />
-          Filtrar
-        </Button>
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {featuredTemplates.map((template) => (
+            <Card key={template.id} className="bg-card border-border shadow-card">
+              <CardContent className="p-5 space-y-4">
+                <div className="relative h-44 rounded-xl overflow-hidden border border-border">
+                  <div className="absolute inset-0 gradient-primary" />
+                  <div className="absolute inset-0 opacity-70 bg-[radial-gradient(circle_at_top,hsla(293,69%,49%,0.35),transparent_60%)]" />
+                  <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-[0.2em] text-primary-foreground/80">{template.type}</span>
+                    <Wand2 className="h-4 w-4 text-primary-foreground" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">{template.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{template.description}</p>
+                </div>
+                <Button className="w-full bg-primary text-primary-foreground hover:bg-accent">
+                  {template.cta}
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
 
-      {/* Files Grid */}
-      {filteredFiles.length === 0 ? (
-        <Card className="bg-card border-border shadow-card">
-          <CardContent className="p-8 text-center text-sm text-muted-foreground">
-            Nenhum arquivo enviado ainda. Faça upload para usar no contexto do chat.
-          </CardContent>
-        </Card>
-      ) : (
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-xl font-semibold text-foreground">Galeria completa</h2>
+          <p className="text-sm text-muted-foreground">
+            Visualize todos os modelos disponíveis e escolha o melhor ponto de partida.
+          </p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredFiles.map((file) => {
-            const ext = file.name.split(".").pop()?.toLowerCase() || "";
-            const Icon = iconMap[ext] || FileText;
-            return (
-              <Card
-                key={file.id}
-                className="bg-card border-border shadow-card hover:shadow-glow hover:border-primary/30 transition-all duration-200"
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="gradient-primary rounded-xl p-3 w-12 h-12 flex items-center justify-center mb-4">
-                      <Icon className="h-5 w-5 text-primary-foreground" />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => handleRemove(file.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <h3 className="text-sm font-medium text-foreground truncate">{file.name}</h3>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-muted-foreground">{formatSize(file.size)}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(file.uploadedAt).toLocaleDateString("pt-BR")}
-                    </span>
-                  </div>
-                  {file.textSnippet ? (
-                    <p className="text-xs text-muted-foreground mt-3 overflow-hidden">
-                      {file.textSnippet}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground mt-3">
-                      Conteúdo binário pronto para contexto do chat.
-                    </p>
+          {templates.map((template) => (
+            <Card
+              key={template.id}
+              className="bg-card border-border shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-glow"
+            >
+              <CardContent className="p-4 space-y-3">
+                <div className="relative h-32 rounded-lg overflow-hidden border border-border">
+                  <div className="absolute inset-0 gradient-primary" />
+                  <div className="absolute inset-0 opacity-60 bg-[linear-gradient(160deg,hsla(304,100%,20%,0.35),transparent)]" />
+                  {template.type === "animation" && (
+                    <div className="absolute inset-0 animate-pulse opacity-40 bg-[radial-gradient(circle,hsla(293,69%,49%,0.4),transparent_70%)]" />
                   )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                  <span className="absolute top-3 left-3 text-[10px] uppercase tracking-[0.2em] text-primary-foreground/80">
+                    {template.type}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">{template.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                </div>
+                <Button size="sm" className="w-full bg-primary text-primary-foreground hover:bg-accent">
+                  {template.cta}
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      )}
+      </section>
     </div>
   );
 }

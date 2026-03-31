@@ -1,7 +1,6 @@
-import { Megaphone, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut, Image as ImageIcon } from "lucide-react";
+﻿import { Megaphone, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut, Image as ImageIcon } from "lucide-react";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
@@ -18,10 +17,10 @@ import {
 
 const mainItems = [
   { title: "Marketing", url: "/", icon: Megaphone },
+  { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
   { title: "Gerador IA", url: "/gerador", icon: ImageIcon },
   { title: "Chat IA", url: "/chat", icon: Bot },
   { title: "Relatórios", url: "/relatorios", icon: BarChart3 },
-  { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
 ];
 
 const bottomItems = [
@@ -31,8 +30,7 @@ const bottomItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -44,9 +42,9 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <h1 className="font-display text-sm font-bold text-foreground tracking-tight">
-                AI Marketing Hub
+                AI Marketing Hub para Infusion.ia
               </h1>
-              <p className="text-xs text-muted-foreground">Seu hub de marketing</p>
+              <p className="text-xs text-muted-foreground">Seu hub inteligente de marketing</p>
             </div>
           )}
         </div>

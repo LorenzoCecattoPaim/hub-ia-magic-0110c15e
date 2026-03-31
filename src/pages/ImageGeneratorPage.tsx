@@ -220,7 +220,7 @@ export default function ImageGeneratorPage() {
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
                     selectedTemplate === t.id
                       ? "gradient-primary text-primary-foreground border-transparent shadow-glow"
-                      : "bg-secondary/50 text-secondary-foreground border-border hover:border-primary/30 hover:bg-secondary"
+                      : "bg-secondary/50 text-secondary-foreground border-border hover:border-primary/30 hover:bg-accent/15"
                   }`}
                 >
                   <t.icon className="h-3.5 w-3.5" />
