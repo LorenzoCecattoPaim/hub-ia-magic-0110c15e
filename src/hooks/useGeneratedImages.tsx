@@ -38,12 +38,17 @@ export type GenerateImageParams = {
   prompt: string;
   quality: "fast" | "pro";
   template?: string;
+  format?: "square" | "vertical";
+};
+
+export type GenerateImageVariant = {
+  image_url: string;
+  optimized_prompt: string;
 };
 
 export type GenerateImageResult = {
-  image_url: string;
+  images: GenerateImageVariant[];
   prompt: string;
-  optimized_prompt: string;
   negative_prompt: string;
   model: string;
   credits_used: number;
@@ -85,6 +90,46 @@ export function useGenerateImage() {
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erro ao gerar imagem");
+    },
+  });
+}
+
+export function useSaveSelectedImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      prompt: string;
+      optimized_prompt: string;
+      negative_prompt: string;
+      image_url: string;
+      model: string;
+      quality: string;
+      credits_used: number;
+    }) => {
+      const { data, error } = await supabase
+        .from("generated_images")
+        .insert({
+          prompt: params.prompt,
+          optimized_prompt: params.optimized_prompt,
+          negative_prompt: params.negative_prompt,
+          image_url: params.image_url,
+          model: params.model,
+          quality: params.quality,
+          credits_used: params.credits_used,
+          user_id: (await supabase.auth.getUser()).data.user!.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["generated-images"] });
+      toast.success("Imagem salva com sucesso!");
+    },
+    onError: () => {
+      toast.error("Erro ao salvar imagem");
     },
   });
 }
