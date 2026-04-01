@@ -57,7 +57,7 @@ Deno.test("generate-image success: returns images and deducts credits", async ()
 
   let generationCount = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input: any, init?: any) => {
     const url = typeof input === "string" ? input : input.url;
     if (url.includes("ai.gateway.lovable.dev")) {
       return new Response(
