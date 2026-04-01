@@ -127,7 +127,7 @@ Deno.test("generate-image error: rate limited on Leonardo", async () => {
   const createClientFn = createMockCreateClient([]);
 
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input: any, init?: any) => {
     const url = typeof input === "string" ? input : input.url;
     if (url.includes("ai.gateway.lovable.dev")) {
       return new Response(
