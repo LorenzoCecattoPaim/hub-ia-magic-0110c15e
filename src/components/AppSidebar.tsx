@@ -1,4 +1,5 @@
-﻿import { Megaphone, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut, Image as ImageIcon } from "lucide-react";
+import { Megaphone, BarChart3, FolderOpen, Settings, Bot, LogOut, Image as ImageIcon } from "lucide-react";
+import logoImg from "@/assets/logo.png";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
