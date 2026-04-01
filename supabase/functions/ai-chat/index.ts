@@ -19,7 +19,7 @@ const SENTRY_DSN = Deno.env.get("SENTRY_DSN");
 
 function chooseModel(prompt: string): string {
   const lower = prompt.toLowerCase();
-  if (lower.includes("analise") || lower.includes("análise") || prompt.length > 500) {
+  if (lower.includes("analise") || lower.includes("anÃ¡lise") || prompt.length > 500) {
     return "openai/gpt-5-mini";
   }
   return "openai/gpt-4o-mini";
@@ -86,7 +86,7 @@ async function requestCompletion(
   return { ok: true, data: aiData } as const;
 }
 
-export async function handleAiChat(req: Request, deps: { createClientFn?: typeof createClient } = {}) {
+export async function handleAiChat(req: Request, deps: { createClientFn?: any } = {}) {
   const createClientFn = deps.createClientFn ?? createClient;
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -121,7 +121,6 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: typeof
 
     const userId = user.id;
 
-    // Rate limit: 10 requests per minute per user
     const { error: rateInsertError } = await supabaseAdmin
       .from("rate_limits")
       .insert({ user_id: userId });
@@ -168,7 +167,6 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: typeof
       preview: message.substring(0, 120),
     });
 
-    // Check credit balance (minimum 1 to proceed)
     const { data: credits } = await supabaseAdmin
       .from("credits")
       .select("balance")
@@ -182,7 +180,6 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: typeof
       );
     }
 
-    // Get business profile
     const { data: businessProfile, error: profileError } = await supabase
       .from("business_profiles")
       .select("*")
@@ -195,28 +192,28 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: typeof
 
     const profile = businessProfile ?? {
       nome_empresa: "Sua empresa",
-      nicho: "Não informado",
+      nicho: "NÃ£o informado",
       tom_comunicacao: "informal",
-      publico_alvo: "Não informado",
+      publico_alvo: "NÃ£o informado",
     };
 
     const model = chooseModel(message);
 
-    const systemPrompt = `Você é um especialista em marketing digital para pequenas empresas brasileiras.
+    const systemPrompt = `VocÃª Ã© um especialista em marketing digital para pequenas empresas brasileiras.
 
 Contexto:
 Empresa: ${profile.nome_empresa}
-Nicho: ${profile.nicho || "Não informado"}
+Nicho: ${profile.nicho || "NÃ£o informado"}
 Tom: ${profile.tom_comunicacao || "informal"}
-Público: ${profile.publico_alvo || "Não informado"}
+PÃºblico: ${profile.publico_alvo || "NÃ£o informado"}
 
 Objetivo:
-Gerar conteúdo que aumente vendas.
+Gerar conteÃºdo que aumente vendas.
 
 Regras:
-- Sempre que possível, incluir CTA (chamada para ação)
-- Ser direto e estratégico
-- Adaptar linguagem ao nicho e tom do negócio
+- Sempre que possÃ­vel, incluir CTA (chamada para aÃ§Ã£o)
+- Ser direto e estratÃ©gico
+- Adaptar linguagem ao nicho e tom do negÃ³cio
 - Usar emojis quando apropriado para o tom
 - Formatar respostas em markdown para melhor legibilidade`;
 
@@ -227,11 +224,6 @@ Regras:
     let modelUsed = model;
 
     if (!aiResult.ok && aiResult.error === "missing_api_key") {
-      await captureSentry(SENTRY_DSN, {
-        message: "ai_chat_missing_api_key",
-        level: "error",
-        tags: { request_id: requestId },
-      });
       await captureSentry(SENTRY_DSN, {
         message: "ai_chat_missing_api_key",
         level: "error",
@@ -267,7 +259,7 @@ Regras:
     const aiData = aiResult.data;
     const responseText =
       aiData.choices?.[0]?.message?.content ||
-      "Não consegui gerar uma resposta. Tente reformular seu pedido.";
+      "NÃ£o consegui gerar uma resposta. Tente reformular seu pedido.";
 
     if (!responseText || !responseText.trim()) {
       await captureSentry(SENTRY_DSN, {
@@ -278,15 +270,10 @@ Regras:
       return jsonResponse({ error: "empty_response" }, 502);
     }
 
-    if (!responseText || !responseText.trim()) {
-      return jsonResponse({ error: "empty_response" }, 502);
-    }
-
     const tokens = Number(aiData?.usage?.total_tokens ?? 0);
     const cost = calculateCostFromTokens(tokens);
     const costUsd = estimateCostInUSD(tokens);
 
-    // Deduct credits using admin client (atomic)
     const { error: deductError } = await supabaseAdmin.rpc("deduct_credits", {
       p_user_id: userId,
       p_amount: cost,
@@ -326,13 +313,6 @@ Regras:
         level: "error",
         tags: { request_id: requestId, model: modelUsed },
         extra: { expected: expectedBalance, actual: updatedCredits.balance },
-      });
-    }
-    const expectedBalance = (credits.balance ?? 0) - cost;
-    if (updatedCredits?.balance != null && updatedCredits.balance !== expectedBalance) {
-      console.error(`[${requestId}] Credits mismatch`, {
-        expected: expectedBalance,
-        actual: updatedCredits.balance,
       });
     }
 
