@@ -86,6 +86,23 @@ async function requestCompletion(
   return { ok: true, data: aiData } as const;
 }
 
+function truncateText(text: string, max = 240) {
+  if (text.length <= max) return text;
+  return `${text.substring(0, max).trim()}...`;
+}
+
+function buildMaterialsContext(materials: Array<{ file_name: string; mime_type: string | null; status: string; extracted_text?: string | null }>) {
+  if (!materials?.length) return "";
+  const lines = materials.map((item) => {
+    const base = `- ${item.file_name} (${item.mime_type || "arquivo"}, ${item.status})`;
+    if (item.extracted_text && item.status === "processed") {
+      return `${base}: ${truncateText(item.extracted_text)}`;
+    }
+    return base;
+  });
+  return lines.join("\n");
+}
+
 export async function handleAiChat(req: Request, deps: { createClientFn?: any } = {}) {
   const createClientFn = deps.createClientFn ?? createClient;
   if (req.method === "OPTIONS") {
@@ -195,7 +212,28 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: any } 
       nicho: "Não informado",
       tom_comunicacao: "informal",
       publico_alvo: "Não informado",
+      segmento_atuacao: "Não informado",
+      objetivo_principal: "Vender mais",
+      marca_descricao: "Não informado",
+      canais: [],
+      tipos_conteudo: [],
+      nivel_experiencia: "Não informado",
+      maior_desafio: "Não informado",
+      como_ia_ajuda: "Gerar conteúdo",
     };
+
+    const { data: materials, error: materialsError } = await supabase
+      .from("business_materials")
+      .select("file_name, mime_type, status, extracted_text")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (materialsError) {
+      console.warn(`[${requestId}] Business materials fetch error:`, materialsError.message);
+    }
+
+    const materialsContext = buildMaterialsContext(materials ?? []);
 
     const model = chooseModel(message);
 
@@ -204,16 +242,26 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: any } 
 Contexto:
 Empresa: ${profile.nome_empresa}
 Nicho: ${profile.nicho || "Não informado"}
+Segmento: ${profile.segmento_atuacao || "Não informado"}
 Tom: ${profile.tom_comunicacao || "informal"}
 Público: ${profile.publico_alvo || "Não informado"}
+Personalidade da marca: ${profile.marca_descricao || "Não informado"}
+Objetivo principal: ${profile.objetivo_principal || "Vender mais"}
+Nível de marketing digital: ${profile.nivel_experiencia || "Não informado"}
+Maior desafio: ${profile.maior_desafio || "Não informado"}
+Como a IA deve ajudar: ${profile.como_ia_ajuda || "Gerar conteúdo"}
+Canais prioritários: ${profile.canais?.length ? profile.canais.join(", ") : "Não informado"}
+Tipos de conteúdo: ${profile.tipos_conteudo?.length ? profile.tipos_conteudo.join(", ") : "Não informado"}
+${materialsContext ? `Materiais do negócio:\n${materialsContext}` : ""}
 
 Objetivo:
-Gerar conteúdo que aumente vendas.
+Atender ao objetivo principal do negócio.
 
 Regras:
 - Sempre que possível, incluir CTA (chamada para ação)
 - Ser direto e estratégico
-- Adaptar linguagem ao nicho e tom do negócio
+- Adaptar linguagem ao nicho, tom e nível de experiência do negócio
+- Priorizar informações dos materiais enviados quando relevantes
 - Usar emojis quando apropriado para o tom
 - Formatar respostas em markdown para melhor legibilidade`;
 

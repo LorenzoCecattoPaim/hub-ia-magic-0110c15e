@@ -54,6 +54,39 @@ interface OptimizedPrompts {
   negative_prompt: string;
 }
 
+function truncateText(text: string, max = 160) {
+  if (text.length <= max) return text;
+  return `${text.substring(0, max).trim()}...`;
+}
+
+function buildBusinessContext(
+  profile: Record<string, any> | null,
+  materials: Array<{ file_name: string; extracted_text?: string | null; status: string }> | null
+) {
+  if (!profile) return "";
+  const parts = [
+    profile.segmento_atuacao ? `Segmento: ${profile.segmento_atuacao}` : null,
+    profile.nicho ? `Nicho: ${profile.nicho}` : null,
+    profile.tom_comunicacao ? `Tom: ${profile.tom_comunicacao}` : null,
+    profile.publico_alvo ? `Público: ${profile.publico_alvo}` : null,
+    profile.marca_descricao ? `Marca: ${profile.marca_descricao}` : null,
+    profile.objetivo_principal ? `Objetivo: ${profile.objetivo_principal}` : null,
+    profile.canais?.length ? `Canais: ${profile.canais.join(", ")}` : null,
+  ].filter(Boolean);
+
+  if (materials?.length) {
+    const snippets = materials.slice(0, 2).map((mat) => {
+      if (mat.extracted_text && mat.status === "processed") {
+        return `Material: ${truncateText(mat.extracted_text)}`;
+      }
+      return `Material: ${mat.file_name}`;
+    });
+    parts.push(...snippets);
+  }
+
+  return parts.join(" | ");
+}
+
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 90_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -255,6 +288,19 @@ export async function handleGenerateImage(req: Request, deps: { createClientFn?:
       return jsonResponse({ error: "invalid_prompt" }, 400);
     }
 
+    const { data: businessProfile } = await supabase
+      .from("business_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const { data: materials } = await supabase
+      .from("business_materials")
+      .select("file_name, extracted_text, status")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(2);
+
     console.log(`[${requestId}] === Generate Image Request ===`);
     console.log(`[${requestId}] User:`, user.id, "| Quality:", quality, "| Template:", template, "| Format:", format);
     console.log(`[${requestId}] Input:`, userInput.substring(0, 120));
@@ -348,15 +394,18 @@ export async function handleGenerateImage(req: Request, deps: { createClientFn?:
         break;
     }
 
+    const businessContext = buildBusinessContext(businessProfile, materials ?? []);
+    const contextBundle = [templateContext, businessContext].filter(Boolean).join(" | ");
+
     // STEP 1: GPT prompt optimization (with 1 retry)
     let optimized: OptimizedPrompts;
 
     try {
-      optimized = await optimizePrompts(userInput, templateContext, LOVABLE_API_KEY, requestId);
-    } catch (firstError) {
+        optimized = await optimizePrompts(userInput, contextBundle, LOVABLE_API_KEY, requestId);
+      } catch (firstError) {
       console.error(`[${requestId}] [GPT] First attempt failed, retrying:`, firstError);
       try {
-        optimized = await optimizePrompts(userInput, templateContext, LOVABLE_API_KEY, requestId);
+        optimized = await optimizePrompts(userInput, contextBundle, LOVABLE_API_KEY, requestId);
       } catch (retryError) {
         console.error(`[${requestId}] [GPT] Retry also failed, using fallback:`, retryError);
         const fallback = `${userInput}, 4k, ultra detailed, sharp focus, professional composition, high quality`.substring(0, MAX_PROMPT_LENGTH);

@@ -1,4 +1,4 @@
-import { Megaphone, BarChart3, FolderOpen, Settings, Bot, LogOut, Image as ImageIcon } from "lucide-react";
+import { Megaphone, BarChart3, FolderOpen, Settings, Bot, LogOut, Image as ImageIcon, Briefcase } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
@@ -18,6 +18,7 @@ import {
 
 const mainItems = [
   { title: "Marketing", url: "/", icon: Megaphone },
+  { title: "Meu negócio", url: "/meu-negocio", icon: Briefcase },
   { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
   { title: "Gerador IA", url: "/gerador", icon: ImageIcon },
   { title: "Chat IA", url: "/chat", icon: Bot },

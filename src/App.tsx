@@ -15,6 +15,7 @@ import ImageGeneratorPage from "./pages/ImageGeneratorPage";
 import RelatoriosPage from "./pages/RelatoriosPage";
 import BibliotecaPage from "./pages/BibliotecaPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
+import MeuNegocioPage from "./pages/MeuNegocioPage";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/onboarding" element={<Protected><OnboardingPage /></Protected>} />
             <Route path="/" element={<Protected><Index /></Protected>} />
             <Route path="/chat" element={<Protected><WithLayout><ChatPage /></WithLayout></Protected>} />
+            <Route path="/meu-negocio" element={<Protected><WithLayout><MeuNegocioPage /></WithLayout></Protected>} />
             <Route path="/gerador" element={<Protected><WithLayout><ImageGeneratorPage /></WithLayout></Protected>} />
             <Route path="/relatorios" element={<Protected><WithLayout><RelatoriosPage /></WithLayout></Protected>} />
             <Route path="/biblioteca" element={<Protected><WithLayout><BibliotecaPage /></WithLayout></Protected>} />
