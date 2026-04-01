@@ -1,4 +1,5 @@
-﻿import { Megaphone, BarChart3, FolderOpen, Settings, Bot, Sparkles, LogOut, Image as ImageIcon } from "lucide-react";
+import { Megaphone, BarChart3, FolderOpen, Settings, Bot, LogOut, Image as ImageIcon } from "lucide-react";
+import logoImg from "@/assets/logo.png";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,9 +37,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="gradient-primary rounded-lg p-2 flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src={logoImg} alt="Infusion AI Logo" className="h-8 w-8 object-contain rounded-lg" />
           {!collapsed && (
             <div>
               <h1 className="font-display text-sm font-bold text-foreground tracking-tight">

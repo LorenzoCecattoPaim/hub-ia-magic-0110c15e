@@ -86,7 +86,7 @@ Deno.test("ai-chat success: returns response and deducts credits", async () => {
     body: JSON.stringify({ message: "Crie um post" }),
   });
 
-  const res = await handleAiChat(req, { createClientFn });
+  const res = await handleAiChat(req, { createClientFn: createClientFn as any });
   const body = await res.json();
 
   assertEquals(res.status, 200);
@@ -122,7 +122,7 @@ Deno.test("ai-chat error: empty response triggers error", async () => {
     body: JSON.stringify({ message: "Teste" }),
   });
 
-  const res = await handleAiChat(req, { createClientFn });
+  const res = await handleAiChat(req, { createClientFn: createClientFn as any });
   const body = await res.json();
 
   assertEquals(res.status, 502);

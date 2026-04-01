@@ -57,7 +57,7 @@ Deno.test("generate-image success: returns images and deducts credits", async ()
 
   let generationCount = 0;
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input: any, init?: any) => {
     const url = typeof input === "string" ? input : input.url;
     if (url.includes("ai.gateway.lovable.dev")) {
       return new Response(
@@ -105,7 +105,7 @@ Deno.test("generate-image success: returns images and deducts credits", async ()
     body: JSON.stringify({ prompt: "Uma imagem", quality: "fast", format: "square" }),
   });
 
-  const res = await handleGenerateImage(req, { createClientFn });
+  const res = await handleGenerateImage(req, { createClientFn: createClientFn as any });
   const body = await res.json();
 
   assertEquals(res.status, 200);
@@ -127,7 +127,7 @@ Deno.test("generate-image error: rate limited on Leonardo", async () => {
   const createClientFn = createMockCreateClient([]);
 
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input: any, init?: any) => {
     const url = typeof input === "string" ? input : input.url;
     if (url.includes("ai.gateway.lovable.dev")) {
       return new Response(
@@ -159,7 +159,7 @@ Deno.test("generate-image error: rate limited on Leonardo", async () => {
     body: JSON.stringify({ prompt: "Uma imagem", quality: "fast", format: "square" }),
   });
 
-  const res = await handleGenerateImage(req, { createClientFn });
+  const res = await handleGenerateImage(req, { createClientFn: createClientFn as any });
   const body = await res.json();
 
   assertEquals(res.status, 429);
