@@ -105,7 +105,7 @@ Deno.test("generate-image success: returns images and deducts credits", async ()
     body: JSON.stringify({ prompt: "Uma imagem", quality: "fast", format: "square" }),
   });
 
-  const res = await handleGenerateImage(req, { createClientFn });
+  const res = await handleGenerateImage(req, { createClientFn: createClientFn as any });
   const body = await res.json();
 
   assertEquals(res.status, 200);
