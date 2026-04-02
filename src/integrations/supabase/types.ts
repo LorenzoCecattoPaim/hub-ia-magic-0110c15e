@@ -44,66 +44,6 @@ export type Database = {
         }
         Relationships: []
       }
-      business_profiles: {
-        Row: {
-          canais: string[] | null
-          created_at: string
-          como_ia_ajuda: string | null
-          id: string
-          maior_desafio: string | null
-          marca_descricao: string | null
-          nicho: string | null
-          nivel_experiencia: string | null
-          nome_empresa: string
-          objetivo_principal: string | null
-          publico_alvo: string | null
-          questionario_completo: boolean
-          segmento_atuacao: string | null
-          tom_comunicacao: string | null
-          tipos_conteudo: string[] | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          canais?: string[] | null
-          created_at?: string
-          como_ia_ajuda?: string | null
-          id?: string
-          maior_desafio?: string | null
-          marca_descricao?: string | null
-          nicho?: string | null
-          nivel_experiencia?: string | null
-          nome_empresa: string
-          objetivo_principal?: string | null
-          publico_alvo?: string | null
-          questionario_completo?: boolean
-          segmento_atuacao?: string | null
-          tom_comunicacao?: string | null
-          tipos_conteudo?: string[] | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          canais?: string[] | null
-          created_at?: string
-          como_ia_ajuda?: string | null
-          id?: string
-          maior_desafio?: string | null
-          marca_descricao?: string | null
-          nicho?: string | null
-          nivel_experiencia?: string | null
-          nome_empresa?: string
-          objetivo_principal?: string | null
-          publico_alvo?: string | null
-          questionario_completo?: boolean
-          segmento_atuacao?: string | null
-          tom_comunicacao?: string | null
-          tipos_conteudo?: string[] | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       business_materials: {
         Row: {
           created_at: string
@@ -136,6 +76,66 @@ export type Database = {
           size_bytes?: number | null
           status?: string
           storage_path?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      business_profiles: {
+        Row: {
+          canais: string[] | null
+          como_ia_ajuda: string | null
+          created_at: string
+          id: string
+          maior_desafio: string | null
+          marca_descricao: string | null
+          nicho: string | null
+          nivel_experiencia: string | null
+          nome_empresa: string
+          objetivo_principal: string | null
+          publico_alvo: string | null
+          questionario_completo: boolean
+          segmento_atuacao: string | null
+          tipos_conteudo: string[] | null
+          tom_comunicacao: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          canais?: string[] | null
+          como_ia_ajuda?: string | null
+          created_at?: string
+          id?: string
+          maior_desafio?: string | null
+          marca_descricao?: string | null
+          nicho?: string | null
+          nivel_experiencia?: string | null
+          nome_empresa: string
+          objetivo_principal?: string | null
+          publico_alvo?: string | null
+          questionario_completo?: boolean
+          segmento_atuacao?: string | null
+          tipos_conteudo?: string[] | null
+          tom_comunicacao?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          canais?: string[] | null
+          como_ia_ajuda?: string | null
+          created_at?: string
+          id?: string
+          maior_desafio?: string | null
+          marca_descricao?: string | null
+          nicho?: string | null
+          nivel_experiencia?: string | null
+          nome_empresa?: string
+          objetivo_principal?: string | null
+          publico_alvo?: string | null
+          questionario_completo?: boolean
+          segmento_atuacao?: string | null
+          tipos_conteudo?: string[] | null
+          tom_comunicacao?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -328,6 +328,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+<<<<<<< HEAD
       add_credits: {
         Args: {
           p_amount: number
@@ -338,6 +339,28 @@ export type Database = {
         }
         Returns: undefined
       }
+=======
+      add_credits:
+        | {
+            Args: {
+              p_amount: number
+              p_description?: string
+              p_type?: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              p_amount: number
+              p_description?: string
+              p_reference_id?: string
+              p_type?: string
+              p_user_id: string
+            }
+            Returns: undefined
+          }
+>>>>>>> eb3acb1906b7ca7f535041800235e91315019a42
       cleanup_rate_limits: { Args: never; Returns: undefined }
       deduct_credits: {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
@@ -349,6 +372,10 @@ export type Database = {
       }
       deduct_credits_secure: {
         Args: { p_amount: number; p_description?: string }
+        Returns: undefined
+      }
+      reset_credits_for_subscription: {
+        Args: { p_amount: number; p_reference_id?: string; p_user_id: string }
         Returns: undefined
       }
     }

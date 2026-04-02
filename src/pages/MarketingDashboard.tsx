@@ -11,10 +11,10 @@ const stats = [
 ];
 
 const quickActions = [
-  { title: "Criar Post", description: "Gere conteúdo para redes sociais com IA", icon: FileText },
-  { title: "Gerar Imagem", description: "Crie visuais promocionais automaticamente", icon: Image },
-  { title: "Nova Campanha", description: "Monte uma estratégia completa de marketing", icon: Megaphone },
-  { title: "Chat com IA", description: "Converse com seu assistente de marketing", icon: Sparkles },
+  { title: "Criar Post", description: "Gere conteúdo para redes sociais com IA", icon: FileText, route: "/gerador" },
+  { title: "Gerar Imagem", description: "Crie visuais promocionais automaticamente", icon: Image, route: "/gerador" },
+  { title: "Nova Campanha", description: "Monte uma estratégia completa de marketing", icon: Megaphone, route: "/chat" },
+  { title: "Chat com IA", description: "Converse com seu assistente de marketing", icon: Sparkles, route: "/chat" },
 ];
 
 const upcomingDates = [
@@ -68,7 +68,7 @@ export default function MarketingDashboard() {
               <Card
                 key={action.title}
                 className="bg-card border-border shadow-card hover:shadow-glow hover:border-primary/30 transition-all duration-300 cursor-pointer group"
-                onClick={() => (action.title === "Chat com IA" ? navigate("/chat") : null)}
+                onClick={() => navigate(action.route)}
               >
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="gradient-primary rounded-lg p-2.5 shrink-0 group-hover:scale-110 transition-transform duration-200">

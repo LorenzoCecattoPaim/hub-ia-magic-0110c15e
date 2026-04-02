@@ -8,14 +8,13 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/AuthPage";
-import OnboardingPage from "./pages/OnboardingPage";
 import { DashboardLayout } from "./components/DashboardLayout";
 import ChatPage from "./pages/ChatPage";
 import ImageGeneratorPage from "./pages/ImageGeneratorPage";
-import RelatoriosPage from "./pages/RelatoriosPage";
 import BibliotecaPage from "./pages/BibliotecaPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
 import MeuNegocioPage from "./pages/MeuNegocioPage";
+import LogoGeneratorPage from "./pages/LogoGeneratorPage";
 
 const queryClient = new QueryClient();
 
@@ -36,12 +35,11 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<AuthPage />} />
-            <Route path="/onboarding" element={<Protected><OnboardingPage /></Protected>} />
             <Route path="/" element={<Protected><Index /></Protected>} />
             <Route path="/chat" element={<Protected><WithLayout><ChatPage /></WithLayout></Protected>} />
             <Route path="/meu-negocio" element={<Protected><WithLayout><MeuNegocioPage /></WithLayout></Protected>} />
             <Route path="/gerador" element={<Protected><WithLayout><ImageGeneratorPage /></WithLayout></Protected>} />
-            <Route path="/relatorios" element={<Protected><WithLayout><RelatoriosPage /></WithLayout></Protected>} />
+            <Route path="/logo-generator" element={<Protected><WithLayout><LogoGeneratorPage /></WithLayout></Protected>} />
             <Route path="/biblioteca" element={<Protected><WithLayout><BibliotecaPage /></WithLayout></Protected>} />
             <Route path="/configuracoes" element={<Protected><WithLayout><ConfiguracoesPage /></WithLayout></Protected>} />
             <Route path="*" element={<NotFound />} />
