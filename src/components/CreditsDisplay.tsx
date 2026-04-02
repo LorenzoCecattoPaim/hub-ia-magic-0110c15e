@@ -50,7 +50,7 @@ export function CreditsDisplay({ collapsed = false }: { collapsed?: boolean }) {
             variant="outline"
             size="sm"
             className="flex-1 text-xs h-7"
-            onClick={() => setBuyOpen(true)}
+            onClick={() => window.location.href = "https://infusionai-hub.lovable.app/#planos"}
           >
             <Zap className="h-3 w-3 mr-1" />
             Comprar
@@ -58,7 +58,7 @@ export function CreditsDisplay({ collapsed = false }: { collapsed?: boolean }) {
           <Button
             size="sm"
             className="flex-1 text-xs h-7 gradient-primary text-primary-foreground"
-            onClick={() => setUpgradeOpen(true)}
+            onClick={() => window.location.href = "https://infusionai-hub.lovable.app/#planos"}
           >
             Upgrade
           </Button>
