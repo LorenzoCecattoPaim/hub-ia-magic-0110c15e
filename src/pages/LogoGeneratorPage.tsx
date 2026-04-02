@@ -1,14 +1,43 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Palette, Loader2, Download, RefreshCw } from "lucide-react";
+﻿import { useState, useRef, useEffect, useCallback } from "react";
+import { Send, Palette, Loader2, Download, Maximize2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import ChatMessage from "@/components/ChatMessage";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Msg = { role: "user" | "assistant"; content: string; timestamp: Date };
-type LogoImage = { id: number; description: string; prompt: string; url?: string; loading?: boolean };
+
+type LogoImage = {
+  id: number;
+  title: string;
+  description: string;
+  prompt: string;
+  image_url?: string;
+};
+
+type LogoState =
+  | "coleta_nome"
+  | "coleta_mercado"
+  | "coleta_estilo"
+  | "coleta_cores"
+  | "definicao_identidade"
+  | "geracao_logos"
+  | "iteracao"
+  | "finalizacao";
+
+type LogoProject = {
+  state: LogoState;
+  name?: string;
+  market?: string;
+  style?: string;
+  colors?: string;
+  identity?: string;
+  history?: Array<{ role: "user" | "assistant"; content: string; timestamp: string }>;
+  last_action_id?: string;
+};
 
 const WELCOME_MSG: Msg = {
   role: "assistant",
@@ -30,12 +59,25 @@ Vamos começar! 👇
   timestamp: new Date(),
 };
 
+const stageLabels: Record<LogoState, string> = {
+  coleta_nome: "Coletando o nome da marca",
+  coleta_mercado: "Coletando o mercado de atuação",
+  coleta_estilo: "Coletando o estilo da marca",
+  coleta_cores: "Coletando as cores desejadas",
+  definicao_identidade: "Definindo identidade visual",
+  geracao_logos: "Gerando 3 opções de logo",
+  iteracao: "Iterando com base no feedback",
+  finalizacao: "Gerando variações finais",
+};
+
 export default function LogoGeneratorPage() {
   const [messages, setMessages] = useState<Msg[]>([WELCOME_MSG]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [logos, setLogos] = useState<LogoImage[]>([]);
   const [generatingLogos, setGeneratingLogos] = useState(false);
+  const [logoProject, setLogoProject] = useState<LogoProject>({ state: "coleta_nome", history: [] });
+  const [previewLogo, setPreviewLogo] = useState<LogoImage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -43,197 +85,9 @@ export default function LogoGeneratorPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, logos]);
 
-  const streamChat = useCallback(async (allMessages: Msg[]) => {
-    const apiMessages = allMessages
-      .filter((m) => m !== WELCOME_MSG)
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    const session = await supabase.auth.getSession();
-    const token = session.data.session?.access_token;
-    if (!token) { toast.error("Sessão expirada"); return ""; }
-
-    const resp = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/logo-generator`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ messages: apiMessages }),
-      }
-    );
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      if (err.error === "insufficient_credits") {
-        toast.error("Créditos insuficientes. Adquira mais créditos para continuar.");
-      } else if (err.error === "rate_limited") {
-        toast.error("Muitas requisições. Aguarde um momento.");
-      } else {
-        toast.error("Erro ao se comunicar com a IA");
-      }
-      return "";
-    }
-
-    const reader = resp.body!.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let fullText = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) !== -1) {
-        let line = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 1);
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (!line.startsWith("data: ")) continue;
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === "[DONE]") break;
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const delta = parsed.choices?.[0]?.delta?.content;
-          if (delta) {
-            fullText += delta;
-            setMessages((prev) => {
-              const last = prev[prev.length - 1];
-              if (last?.role === "assistant" && last !== WELCOME_MSG) {
-                return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: fullText } : m);
-              }
-              return [...prev, { role: "assistant", content: fullText, timestamp: new Date() }];
-            });
-          }
-        } catch {
-          // try to parse credits metadata
-          try {
-            const meta = JSON.parse(jsonStr);
-            if (meta.credits_remaining !== undefined) {
-              queryClient.invalidateQueries({ queryKey: ["credits"] });
-            }
-          } catch { /* ignore */ }
-        }
-      }
-    }
-
-    return fullText;
-  }, [queryClient]);
-
-  const generateLogoImage = useCallback(async (prompt: string): Promise<string | null> => {
-    const session = await supabase.auth.getSession();
-    const token = session.data.session?.access_token;
-    if (!token) return null;
-
-    const resp = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/logo-generator`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ mode: "generate_image", prompt }),
-      }
-    );
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      if (err.error === "insufficient_credits") {
-        toast.error("Créditos insuficientes para gerar imagem.");
-      } else {
-        toast.error("Erro ao gerar imagem do logo.");
-      }
-      return null;
-    }
-
-    const data = await resp.json();
-    queryClient.invalidateQueries({ queryKey: ["credits"] });
-    return data.image_url || null;
-  }, [queryClient]);
-
-  const tryParseAction = useCallback(async (text: string) => {
-    // Check if AI returned a JSON action block
-    const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-    if (!jsonMatch) return;
-
-    try {
-      const action = JSON.parse(jsonMatch[1]);
-
-      if (action.action === "generate_logos" && action.prompts) {
-        setGeneratingLogos(true);
-        const newLogos: LogoImage[] = action.prompts.map((p: any) => ({
-          id: p.id,
-          description: p.description,
-          prompt: p.prompt,
-          loading: true,
-        }));
-        setLogos(newLogos);
-
-        // Generate all 3 in parallel
-        const results = await Promise.allSettled(
-          newLogos.map(async (logo) => {
-            const url = await generateLogoImage(logo.prompt);
-            return { id: logo.id, url };
-          })
-        );
-
-        setLogos((prev) =>
-          prev.map((logo) => {
-            const result = results.find(
-              (r) => r.status === "fulfilled" && r.value.id === logo.id
-            );
-            if (result?.status === "fulfilled") {
-              return { ...logo, url: result.value.url || undefined, loading: false };
-            }
-            return { ...logo, loading: false };
-          })
-        );
-        setGeneratingLogos(false);
-      }
-
-      if (action.action === "generate_variations" && action.variations) {
-        setGeneratingLogos(true);
-        const newLogos: LogoImage[] = action.variations.map((desc: string, i: number) => ({
-          id: i + 1,
-          description: desc,
-          prompt: `${action.base_prompt}, ${desc}`,
-          loading: true,
-        }));
-        setLogos(newLogos);
-
-        const results = await Promise.allSettled(
-          newLogos.map(async (logo) => {
-            const url = await generateLogoImage(logo.prompt);
-            return { id: logo.id, url };
-          })
-        );
-
-        setLogos((prev) =>
-          prev.map((logo) => {
-            const result = results.find(
-              (r) => r.status === "fulfilled" && r.value.id === logo.id
-            );
-            if (result?.status === "fulfilled") {
-              return { ...logo, url: result.value.url || undefined, loading: false };
-            }
-            return { ...logo, loading: false };
-          })
-        );
-        setGeneratingLogos(false);
-      }
-    } catch {
-      // Not valid JSON action, ignore
-    }
-  }, [generateLogoImage]);
-
-  const handleSend = useCallback(async () => {
-    const text = input.trim();
-    if (!text || loading) return;
+  const sendMessage = useCallback(async (content: string) => {
+    const text = content.trim();
+    if (!text) return;
 
     const userMsg: Msg = { role: "user", content: text, timestamp: new Date() };
     const newMessages = [...messages, userMsg];
@@ -241,18 +95,99 @@ export default function LogoGeneratorPage() {
     setInput("");
     setLoading(true);
 
+    const actionId = crypto.randomUUID();
+
+    const apiMessages = newMessages
+      .filter((m) => m !== WELCOME_MSG)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     try {
-      const responseText = await streamChat(newMessages);
-      if (responseText) {
-        await tryParseAction(responseText);
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token;
+      if (!token) {
+        toast.error("Sessão expirada");
+        return;
       }
+
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/logo-generator`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            message: text,
+            messages: apiMessages,
+            logo_project: logoProject,
+            action_id: actionId,
+          }),
+        }
+      );
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        if (err.error === "insufficient_credits") {
+          toast.error("Créditos insuficientes. Adquira mais créditos para continuar.");
+        } else if (err.error === "rate_limited") {
+          toast.error("Muitas requisições. Aguarde um momento.");
+        } else if (err.error === "duplicate_action") {
+          toast.info("Esta ação já foi processada. Tente novamente se necessário.");
+        } else {
+          toast.error("Erro ao se comunicar com a IA");
+        }
+        return;
+      }
+
+      const data = await resp.json();
+      if (data.reply) {
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply, timestamp: new Date() }]);
+      }
+
+      if (Array.isArray(data.logos) && data.logos.length > 0) {
+        setLogos(
+          data.logos.map((logo: any) => ({
+            id: Number(logo.id),
+            title: String(logo.title || `Logo ${logo.id}`),
+            description: String(logo.description || ""),
+            prompt: String(logo.prompt || ""),
+            image_url: logo.image_url,
+          }))
+        );
+        setGeneratingLogos(false);
+      }
+
+      if (data.logo_project) {
+        setLogoProject(data.logo_project);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["credits"] });
     } catch (e) {
       console.error("Send error:", e);
       toast.error("Erro inesperado");
     } finally {
       setLoading(false);
+      setGeneratingLogos(false);
     }
-  }, [input, loading, messages, streamChat, tryParseAction]);
+  }, [logoProject, messages, queryClient]);
+
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || loading) return;
+    setGeneratingLogos(
+      logoProject.state === "geracao_logos" ||
+      logoProject.state === "iteracao" ||
+      logoProject.state === "finalizacao"
+    );
+    await sendMessage(input);
+  }, [input, loading, logoProject.state, sendMessage]);
+
+  const handleSelectLogo = useCallback(async (logo: LogoImage) => {
+    if (loading) return;
+    setGeneratingLogos(true);
+    await sendMessage(`Escolho o logo ${logo.id}.`);
+  }, [loading, sendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -279,6 +214,7 @@ export default function LogoGeneratorPage() {
           <div>
             <h1 className="text-lg font-bold text-foreground">Gerador de Logo IA</h1>
             <p className="text-xs text-muted-foreground">Designer gráfico especialista em logotipos</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{stageLabels[logoProject.state]}</p>
           </div>
         </div>
       </div>
@@ -301,36 +237,54 @@ export default function LogoGeneratorPage() {
                   key={logo.id}
                   className="bg-card border border-border rounded-xl overflow-hidden shadow-card"
                 >
-                  <div className="aspect-square bg-muted/50 flex items-center justify-center">
-                    {logo.loading ? (
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    ) : logo.url ? (
+                  <div className="aspect-square bg-muted/50 flex items-center justify-center relative">
+                    {logo.image_url ? (
                       <img
-                        src={logo.url}
-                        alt={`Logo ${logo.id}`}
+                        src={logo.image_url}
+                        alt={logo.title}
                         className="w-full h-full object-contain p-2"
                       />
                     ) : (
-                      <p className="text-xs text-muted-foreground p-4 text-center">
-                        Falha ao gerar
-                      </p>
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    )}
+                    {logo.image_url && (
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="absolute top-2 right-2 h-8 w-8 rounded-xl bg-card/80"
+                        onClick={() => setPreviewLogo(logo)}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                   <div className="p-3 space-y-2">
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {logo.description}
                     </p>
-                    {logo.url && !logo.loading && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full text-xs"
-                        onClick={() => downloadImage(logo.url!, `logo-${logo.id}.png`)}
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Baixar
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {logo.image_url && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs"
+                          onClick={() => downloadImage(logo.image_url!, `logo-${logo.id}.png`)}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Baixar
+                        </Button>
+                      )}
+                      {logo.image_url && logoProject.state !== "finalizacao" && (
+                        <Button
+                          size="sm"
+                          className="flex-1 text-xs gradient-primary text-primary-foreground"
+                          onClick={() => handleSelectLogo(logo)}
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          Selecionar
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -343,7 +297,9 @@ export default function LogoGeneratorPage() {
             <div className="bg-card/80 backdrop-blur-sm border border-border/60 rounded-2xl px-5 py-4">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">Pensando...</span>
+                <span className="text-sm text-muted-foreground">
+                  {stageLabels[logoProject.state]}...
+                </span>
               </div>
             </div>
           </div>
@@ -372,9 +328,64 @@ export default function LogoGeneratorPage() {
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1.5">
-          Cada mensagem consome 1 crédito • Cada logo gerado consome 5 créditos
+          Cada mensagem consome 1 crédito • Cada rodada de logos consome 5 créditos
         </p>
       </div>
+
+      {/* Preview Modal */}
+      <Dialog open={!!previewLogo} onOpenChange={() => setPreviewLogo(null)}>
+        <DialogContent className="max-w-3xl bg-card border-border rounded-2xl p-0 overflow-hidden">
+          {previewLogo && (
+            <>
+              <div className="relative">
+                <img
+                  src={previewLogo.image_url}
+                  alt={previewLogo.title}
+                  className="w-full max-h-[60vh] object-contain bg-background"
+                />
+              </div>
+              <div className="p-5 space-y-4">
+                <DialogHeader>
+                  <DialogTitle className="font-display text-base">
+                    {previewLogo.title}
+                  </DialogTitle>
+                </DialogHeader>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Descrição</p>
+                  <p className="text-sm text-foreground bg-secondary/50 rounded-xl p-3">
+                    {previewLogo.description}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Prompt</p>
+                  <p className="text-sm text-foreground bg-secondary/50 rounded-xl p-3">
+                    {previewLogo.prompt}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-xl border-border"
+                    onClick={() => previewLogo.image_url && downloadImage(previewLogo.image_url, `logo-${previewLogo.id}.png`)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar
+                  </Button>
+                  {logoProject.state !== "finalizacao" && (
+                    <Button
+                      className="flex-1 rounded-xl gradient-primary text-primary-foreground"
+                      onClick={() => handleSelectLogo(previewLogo)}
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      Selecionar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
