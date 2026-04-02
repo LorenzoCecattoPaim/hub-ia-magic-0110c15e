@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Send, Sparkles, Bot, User, Megaphone, Image, Lightbulb, Tag, TrendingUp, Target, BarChart3 } from "lucide-react";
+import { Send, Sparkles, Bot, Megaphone, Image, Lightbulb, Tag, TrendingUp, Target, BarChart3 } from "lucide-react";
+import ChatMessage from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
