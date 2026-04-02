@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { Send, Sparkles, Bot, User, Megaphone, Image, Lightbulb, Tag, TrendingUp, Target, BarChart3 } from "lucide-react";
+import { Send, Sparkles, Bot, Megaphone, Image, Lightbulb, Tag, TrendingUp, Target, BarChart3 } from "lucide-react";
+import ChatMessage from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { useQueryClient } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
 import { buildRagContextSummary, loadRagFiles, RAG_UPDATE_EVENT, type RagFileEntry } from "@/lib/rag";
 
 type Message = {
@@ -349,53 +349,26 @@ export default function ChatPage() {
             </div>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl mx-auto space-y-5">
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
-                {msg.role === "assistant" && (
-                  <div className="gradient-primary rounded-lg p-2 h-8 w-8 flex items-center justify-center shrink-0 mt-1">
-                    <Bot className="h-4 w-4 text-primary-foreground" />
-                  </div>
-                )}
-                <div
-                  className={`rounded-2xl px-4 py-3 max-w-[80%] ${
-                    msg.role === "user"
-                      ? "gradient-primary text-primary-foreground"
-                      : "bg-card border border-border shadow-card"
-                  }`}
-                >
-                  {msg.role === "assistant" ? (
-                    <div className="text-sm prose prose-sm prose-invert max-w-none leading-relaxed">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                  )}
-                  <p
-                    className={`text-xs mt-2 ${
-                      msg.role === "user" ? "text-primary-foreground/60" : "text-muted-foreground"
-                    }`}
-                  >
-                    {msg.timestamp.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-                {msg.role === "user" && (
-                  <div className="bg-secondary rounded-lg p-2 h-8 w-8 flex items-center justify-center shrink-0 mt-1">
-                    <User className="h-4 w-4 text-secondary-foreground" />
-                  </div>
-                )}
-              </div>
+              <ChatMessage
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                timestamp={msg.timestamp}
+              />
             ))}
             {isLoading && !messages.some((m) => m.role === "assistant" && m.content === "") && messages[messages.length - 1]?.role === "user" && (
-              <div className="flex gap-3">
-                <div className="gradient-primary rounded-lg p-2 h-8 w-8 flex items-center justify-center shrink-0">
-                  <Bot className="h-4 w-4 text-primary-foreground" />
+              <div className="flex gap-3 animate-fade-in">
+                <div className="gradient-primary rounded-xl p-1.5 h-9 w-9 flex items-center justify-center shrink-0 shadow-glow">
+                  <Bot className="h-5 w-5 text-primary-foreground" />
                 </div>
-                <div className="bg-card border border-border rounded-2xl px-4 py-3 shadow-card">
-                  <div className="flex gap-1.5">
+                <div className="bg-card/80 backdrop-blur-sm border border-border/60 rounded-2xl px-5 py-4 shadow-card">
+                  <div className="flex gap-2 items-center">
                     <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                     <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
                     <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="text-xs text-muted-foreground ml-2">Pensando...</span>
                   </div>
                 </div>
               </div>
