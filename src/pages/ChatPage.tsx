@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { useQueryClient } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
+import { buildRagContextSummary, loadRagFiles, RAG_UPDATE_EVENT, type RagFileEntry } from "@/lib/rag";
 import { buildRagContextSummary, loadRagFiles, RAG_UPDATE_EVENT, type RagFileEntry } from "@/lib/rag";
 
 type Message = {
