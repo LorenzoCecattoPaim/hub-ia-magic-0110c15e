@@ -11,10 +11,10 @@ const stats = [
 ];
 
 const quickActions = [
-  { title: "Criar Post", description: "Gere conteúdo para redes sociais com IA", icon: FileText },
-  { title: "Gerar Imagem", description: "Crie visuais promocionais automaticamente", icon: Image },
-  { title: "Nova Campanha", description: "Monte uma estratégia completa de marketing", icon: Megaphone },
-  { title: "Chat com IA", description: "Converse com seu assistente de marketing", icon: Sparkles },
+  { title: "Criar Post", description: "Gere conteúdo para redes sociais com IA", icon: FileText, route: "/gerador" },
+  { title: "Gerar Imagem", description: "Crie visuais promocionais automaticamente", icon: Image, route: "/gerador" },
+  { title: "Nova Campanha", description: "Monte uma estratégia completa de marketing", icon: Megaphone, route: "/chat" },
+  { title: "Chat com IA", description: "Converse com seu assistente de marketing", icon: Sparkles, route: "/chat" },
 ];
 
 const upcomingDates = [
