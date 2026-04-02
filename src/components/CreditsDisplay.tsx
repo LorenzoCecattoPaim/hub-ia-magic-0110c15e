@@ -14,6 +14,7 @@ export function CreditsDisplay({ collapsed = false }: { collapsed?: boolean }) {
   if (isLoading) return null;
 
   const isLow = (balance ?? 0) <= 10;
+  const isPremium = subscription?.plan === "premium";
 
   if (collapsed) {
     return (
@@ -37,7 +38,7 @@ export function CreditsDisplay({ collapsed = false }: { collapsed?: boolean }) {
             <CreditCard className="h-4 w-4 text-primary shrink-0" />
           )}
           <span className={`text-sm font-medium ${isLow ? "text-destructive" : "text-primary"}`}>
-            💳 {balance ?? 0} créditos
+            Creditos: {balance ?? 0}
           </span>
         </div>
         {subscription?.plan && (
@@ -51,6 +52,7 @@ export function CreditsDisplay({ collapsed = false }: { collapsed?: boolean }) {
             size="sm"
             className="flex-1 text-xs h-7"
             onClick={() => setBuyOpen(true)}
+            disabled={!isPremium}
           >
             <Zap className="h-3 w-3 mr-1" />
             Comprar

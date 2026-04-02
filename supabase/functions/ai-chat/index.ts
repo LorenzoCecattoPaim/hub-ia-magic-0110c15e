@@ -138,6 +138,22 @@ export async function handleAiChat(req: Request, deps: { createClientFn?: any } 
 
     const userId = user.id;
 
+    const { data: subscription } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const hasAccess =
+      subscription &&
+      (subscription.status === "active" || subscription.status === "canceled") &&
+      subscription.current_period_end &&
+      new Date(subscription.current_period_end).getTime() > Date.now();
+
+    if (!hasAccess) {
+      return jsonResponse({ error: "subscription_inactive" }, 402);
+    }
+
     const { error: rateInsertError } = await supabaseAdmin
       .from("rate_limits")
       .insert({ user_id: userId });

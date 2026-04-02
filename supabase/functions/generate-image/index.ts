@@ -272,6 +272,22 @@ export async function handleGenerateImage(req: Request, deps: { createClientFn?:
       return jsonResponse({ error: "not_authenticated" }, 401);
     }
 
+    const { data: subscription } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status, current_period_end")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const hasAccess =
+      subscription &&
+      (subscription.status === "active" || subscription.status === "canceled") &&
+      subscription.current_period_end &&
+      new Date(subscription.current_period_end).getTime() > Date.now();
+
+    if (!hasAccess) {
+      return jsonResponse({ error: "subscription_inactive" }, 402);
+    }
+
     let body: any;
     try {
       body = await req.json();

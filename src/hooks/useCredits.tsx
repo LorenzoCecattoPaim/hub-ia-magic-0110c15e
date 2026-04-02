@@ -53,10 +53,15 @@ export function useBuyCredits() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["credits"] });
-      toast.success(`${data.credits_added} créditos adicionados!`);
+      if (data?.payment_url) {
+        toast.success("Pagamento criado. Redirecionando...");
+        window.location.href = data.payment_url;
+        return;
+      }
+      toast.success("Pagamento criado. Aguarde a confirmacao.");
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Erro ao comprar créditos");
+      toast.error(err.message || "Erro ao comprar creditos");
     },
   });
 }
@@ -76,7 +81,12 @@ export function useUpgradePlan() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
-      toast.success(`Plano atualizado para ${data.plan}!`);
+      if (data?.payment_url) {
+        toast.success("Assinatura criada. Redirecionando...");
+        window.location.href = data.payment_url;
+        return;
+      }
+      toast.success(`Solicitacao enviada para o plano ${data.plan}.`);
     },
     onError: (err: Error) => {
       toast.error(err.message || "Erro ao atualizar plano");

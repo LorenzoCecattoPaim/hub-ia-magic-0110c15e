@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
-import { useBuyCredits } from "@/hooks/useCredits";
+import { useBuyCredits, useSubscription } from "@/hooks/useCredits";
 
 const packages = [
   { id: "small", credits: 100, price: "R$ 9,90", popular: false },
@@ -17,8 +17,12 @@ interface Props {
 
 export function BuyCreditsDialog({ open, onOpenChange }: Props) {
   const buyCredits = useBuyCredits();
+  const { data: subscription } = useSubscription();
+
+  const isPremium = subscription?.plan === "premium";
 
   const handleBuy = async (pkg: string) => {
+    if (!isPremium) return;
     await buyCredits.mutateAsync(pkg);
     onOpenChange(false);
   };
@@ -29,22 +33,22 @@ export function BuyCreditsDialog({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
-            Comprar Créditos
+            Comprar Creditos
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 mt-2">
           {packages.map((pkg) => (
             <Card
               key={pkg.id}
-              className={`p-4 cursor-pointer transition-all hover:border-primary/50 ${
+              className={`p-4 transition-all ${
                 pkg.popular ? "border-primary shadow-glow" : ""
-              }`}
+              } ${isPremium ? "cursor-pointer hover:border-primary/50" : "opacity-70"}`}
               onClick={() => handleBuy(pkg.id)}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-foreground">{pkg.credits} créditos</span>
+                    <span className="font-bold text-foreground">{pkg.credits} creditos</span>
                     {pkg.popular && (
                       <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full font-medium">
                         Popular
@@ -55,7 +59,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: Props) {
                 </div>
                 <Button
                   size="sm"
-                  disabled={buyCredits.isPending}
+                  disabled={buyCredits.isPending || !isPremium}
                   className="gradient-primary text-primary-foreground"
                 >
                   Comprar
@@ -64,7 +68,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: Props) {
             </Card>
           ))}
           <p className="text-xs text-muted-foreground text-center">
-            Pagamento simulado • Pronto para integrar Stripe
+            Disponivel apenas para o plano Premium
           </p>
         </div>
       </DialogContent>

@@ -6,25 +6,18 @@ import { useUpgradePlan, useSubscription } from "@/hooks/useCredits";
 
 const plans = [
   {
-    id: "free",
-    name: "Free",
-    price: "Grátis",
-    credits: "100 créditos (uma vez)",
-    features: ["Chat IA básico", "1 perfil de negócio"],
-  },
-  {
     id: "basic",
-    name: "Basic",
-    price: "R$ 29,90/mês",
-    credits: "500 créditos/mês",
-    features: ["Chat IA avançado", "Modelos premium", "Suporte prioritário"],
+    name: "Basico",
+    price: "R$ 199/mes",
+    credits: "500 creditos/mes",
+    features: ["Chat IA completo", "Modelos premium", "Suporte padrao"],
   },
   {
-    id: "pro",
-    name: "Pro",
-    price: "R$ 79,90/mês",
-    credits: "2.000 créditos/mês",
-    features: ["Todos os modelos IA", "Análises avançadas", "API access", "Suporte VIP"],
+    id: "premium",
+    name: "Premium",
+    price: "R$ 424/mes",
+    credits: "1200 creditos/mes",
+    features: ["Tudo do Basico", "Compra de creditos avulsos", "Suporte prioritario"],
   },
 ];
 
@@ -58,7 +51,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: Props) {
               <Card
                 key={plan.id}
                 className={`p-4 transition-all ${
-                  plan.id === "pro" ? "border-primary shadow-glow" : ""
+                  plan.id === "premium" ? "border-primary shadow-glow" : ""
                 } ${isCurrent ? "opacity-70" : "hover:border-primary/50 cursor-pointer"}`}
               >
                 <div className="flex items-start justify-between">
@@ -86,8 +79,8 @@ export function UpgradePlanDialog({ open, onOpenChange }: Props) {
                     size="sm"
                     disabled={isCurrent || upgradePlan.isPending}
                     onClick={() => handleUpgrade(plan.id)}
-                    className={plan.id === "pro" ? "gradient-primary text-primary-foreground" : ""}
-                    variant={plan.id === "pro" ? "default" : "outline"}
+                    className={plan.id === "premium" ? "gradient-primary text-primary-foreground" : ""}
+                    variant={plan.id === "premium" ? "default" : "outline"}
                   >
                     {isCurrent ? "Atual" : "Selecionar"}
                   </Button>
@@ -96,7 +89,7 @@ export function UpgradePlanDialog({ open, onOpenChange }: Props) {
             );
           })}
           <p className="text-xs text-muted-foreground text-center">
-            Pagamento simulado • Pronto para integrar Stripe
+            Assinatura ativada apos confirmacao do pagamento
           </p>
         </div>
       </DialogContent>

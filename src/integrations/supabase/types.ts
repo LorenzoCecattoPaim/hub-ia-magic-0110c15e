@@ -146,6 +146,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          reference_id: string | null
           type: string
           user_id: string
         }
@@ -154,6 +155,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          reference_id?: string | null
           type: string
           user_id: string
         }
@@ -162,6 +164,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          reference_id?: string | null
           type?: string
           user_id?: string
         }
@@ -171,18 +174,21 @@ export type Database = {
         Row: {
           balance: number
           id: string
+          last_reset_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           balance?: number
           id?: string
+          last_reset_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           balance?: number
           id?: string
+          last_reset_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -268,8 +274,9 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
+          gateway: string | null
+          gateway_subscription_id: string | null
           id: string
-          monthly_credits: number
           plan: string
           status: string
           user_id: string
@@ -278,8 +285,9 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          gateway?: string | null
+          gateway_subscription_id?: string | null
           id?: string
-          monthly_credits?: number
           plan?: string
           status?: string
           user_id: string
@@ -288,11 +296,30 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
+          gateway?: string | null
+          gateway_subscription_id?: string | null
           id?: string
-          monthly_credits?: number
           plan?: string
           status?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          event_id: string
+          gateway: string
+          processed_at: string
+        }
+        Insert: {
+          event_id: string
+          gateway: string
+          processed_at?: string
+        }
+        Update: {
+          event_id?: string
+          gateway?: string
+          processed_at?: string
         }
         Relationships: []
       }
@@ -305,6 +332,7 @@ export type Database = {
         Args: {
           p_amount: number
           p_description?: string
+          p_reference_id?: string | null
           p_type?: string
           p_user_id: string
         }
@@ -313,6 +341,10 @@ export type Database = {
       cleanup_rate_limits: { Args: never; Returns: undefined }
       deduct_credits: {
         Args: { p_amount: number; p_description?: string; p_user_id: string }
+        Returns: undefined
+      }
+      reset_credits_for_subscription: {
+        Args: { p_amount: number; p_reference_id?: string | null; p_user_id: string }
         Returns: undefined
       }
       deduct_credits_secure: {
