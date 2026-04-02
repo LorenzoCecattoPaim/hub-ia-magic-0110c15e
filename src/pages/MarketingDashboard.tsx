@@ -68,7 +68,7 @@ export default function MarketingDashboard() {
               <Card
                 key={action.title}
                 className="bg-card border-border shadow-card hover:shadow-glow hover:border-primary/30 transition-all duration-300 cursor-pointer group"
-                onClick={() => (action.title === "Chat com IA" ? navigate("/chat") : null)}
+                onClick={() => navigate(action.route)}
               >
                 <CardContent className="p-5 flex items-start gap-4">
                   <div className="gradient-primary rounded-lg p-2.5 shrink-0 group-hover:scale-110 transition-transform duration-200">
