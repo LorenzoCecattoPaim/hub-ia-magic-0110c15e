@@ -38,6 +38,7 @@ const App = () => (
             <Route path="/chat" element={<Protected><WithLayout><ChatPage /></WithLayout></Protected>} />
             <Route path="/meu-negocio" element={<Protected><WithLayout><MeuNegocioPage /></WithLayout></Protected>} />
             <Route path="/gerador" element={<Protected><WithLayout><ImageGeneratorPage /></WithLayout></Protected>} />
+            <Route path="/logo-generator" element={<Protected><WithLayout><LogoGeneratorPage /></WithLayout></Protected>} />
             <Route path="/biblioteca" element={<Protected><WithLayout><BibliotecaPage /></WithLayout></Protected>} />
             <Route path="/configuracoes" element={<Protected><WithLayout><ConfiguracoesPage /></WithLayout></Protected>} />
             <Route path="*" element={<NotFound />} />

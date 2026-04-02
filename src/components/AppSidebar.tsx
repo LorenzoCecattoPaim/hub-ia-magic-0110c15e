@@ -21,6 +21,7 @@ const mainItems = [
   { title: "Meu negócio", url: "/meu-negocio", icon: Briefcase },
   { title: "Biblioteca", url: "/biblioteca", icon: FolderOpen },
   { title: "Gerador de Imagem IA", url: "/gerador", icon: ImageIcon },
+  { title: "Gerador de Logo IA", url: "/logo-generator", icon: Palette },
   { title: "Chat IA", url: "/chat", icon: Bot },
 ];
 
