@@ -14,6 +14,7 @@ import ImageGeneratorPage from "./pages/ImageGeneratorPage";
 import BibliotecaPage from "./pages/BibliotecaPage";
 import ConfiguracoesPage from "./pages/ConfiguracoesPage";
 import MeuNegocioPage from "./pages/MeuNegocioPage";
+import LogoGeneratorPage from "./pages/LogoGeneratorPage";
 
 const queryClient = new QueryClient();
 
