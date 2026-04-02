@@ -1,4 +1,4 @@
-import { Megaphone, FolderOpen, Settings, Bot, LogOut, Image as ImageIcon, Briefcase } from "lucide-react";
+import { Megaphone, FolderOpen, Settings, Bot, LogOut, Image as ImageIcon, Briefcase, Palette } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { NavLink } from "@/components/NavLink";
